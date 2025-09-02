@@ -1,0 +1,14 @@
+{
+  "id": "sanctum-merchant",
+  "name": "Sanctum Merchant",
+  "title": "Sanctum Merchant",
+  "description": "Dynamic merchant inventory system using compendium-driven roll tables.",
+  "version": "1.0.0",
+  "author": "Shane Nelson",
+  "authors": [
+    { "name": "Shane Nelson", "url": "", "email": "" }
+  ],
+  "type": "module",
+  "esmodules": ["scripts/merchant.js"],
+  "compatibility": { "minimum": "11", "verified": "13" }
+}
