@@ -384,7 +384,7 @@ game.sanctumMerchant.auditTags = async function () {
 	  }
 
 	  // 🧪 Optional debug log
-	  console.log(`🧪 ${item.name} → Tag: ${detectedTag} (Weight: ${highestWeight})`);
+	  //console.log(`🧪 ${item.name} → Tag: ${detectedTag} (Weight: ${highestWeight})`);
 	}
 
 
@@ -401,9 +401,13 @@ game.sanctumMerchant.auditTags = async function () {
 		for (const [tag, items] of Object.entries(tagGroups)) {
 		  output += `
 			<div class="sanctum-tag-group" style="margin-bottom:10px;">
-			  <div class="sanctum-tag-header" style="cursor:pointer;font-weight:bold;background:#333;color:#fff;padding:6px;border-radius:4px;">
-				▶ ${tag} (${items.length})
-			  </div>
+			  <div class="sanctum-tag-header" data-tag="${tag}" style="cursor:pointer;font-weight:bold;background:#333;color:#fff;padding:6px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;">
+				  <span class="sanctum-tag-label">▶ ${tag} (${items.length})</span>
+				  <button type="button" class="stock-group" data-tag="${tag}" style="padding:2px 6px;font-size:0.75em;background:#3fa9f5;color:white;border:none;border-radius:3px;cursor:pointer;">
+					Stock All 🛒
+				  </button>
+				</div>
+
 			  <ul class="sanctum-tag-items" style="display:none;margin-top:6px;padding-left:20px;">
 				${items.map(({ item, tag }) => `
 				  <li style="margin-bottom: 4px;">
@@ -517,6 +521,40 @@ game.sanctumMerchant.auditTags = async function () {
 						}
 					  }
 				});
+				html.find(".stock-group").on("click", async function (event) {
+				  event.preventDefault(); // prevent any default behavior
+				  event.stopPropagation(); // prevent bubbling that might remove the button
+
+				  const tag = this.dataset.tag;
+				  const group = $(this).closest(".sanctum-tag-group");
+				  const items = group.find(".sanctum-item-link");
+
+				  if (!items.length) return;
+
+				  for (const token of canvas.tokens.controlled) {
+					const actor = token.actor;
+					if (!actor) continue;
+
+					const actorItems = new Set(actor.items.map(i => i.name));
+
+					for (const el of items) {
+					  const packName = el.dataset.pack;
+					  const itemId = el.dataset.id;
+					  const pack = game.packs.get(packName);
+					  const doc = await pack.getDocument(itemId);
+					  if (!doc) continue;
+
+					  if (!actorItems.has(doc.name)) {
+						await actor.createEmbeddedDocuments("Item", [doc.toObject()]);
+						ui.notifications.info(`${doc.name} stocked to ${actor.name}`);
+					  } else {
+						ui.notifications.warn(`${actor.name} already has ${doc.name}`);
+					  }
+					}
+				  }
+				});
+
+
 				function runNameFilter() {
 				  const query = html.find("#name-filter").val().trim().toLowerCase();
 				  const groups = html.find(".sanctum-tag-group");
@@ -562,10 +600,10 @@ game.sanctumMerchant.populateMerchant = async function(options = {}) {
     const {
         compendiumName = "world.ddb-oathbreaker-ddb-items",
         rollFormula = "1d6+2",
-        allowedTypes = ["weapon", "consumable", "equipment", "loot"],
-        rareTags = ["rare", "legendary", "exotic", "sanctum-blessed"],
+        allowedTypes = ["weapon", "consumable", "equipment", "loot", "container", "wondrous item", "item"],
+        rareTags = ["rare", "very rare", "legendary", "exotic", "sanctum-blessed"],
         strictRarity = true,
-		merchantMessage
+        merchantMessage
     } = options;
 
     const fallbackCommon = [
@@ -573,50 +611,85 @@ game.sanctumMerchant.populateMerchant = async function(options = {}) {
         "sling", "club", "robe", "kit", "tools", "basic", "simple"
     ];
 
-
     const pack = game.packs.get(compendiumName);
     if (!pack) {
         ui.notifications.error(`Compendium "${compendiumName}" not found.`);
         return;
     }
 
-    // Include flags in the index to access importer data and potentially system data
-    const index = await pack.getIndex({ fields: ["type", "flags", "name", "system"] });
+    // Load only necessary fields from the compendium index for efficiency
+    const index = await pack.getIndex({
+        fields: ["type", "name", "flags", "system"]
+    });
 
-    // Filter items by type first
     const filteredItems = index.filter(i => allowedTypes.includes(i.type));
+	
+	const debug = options.debug || false;
 
-    // Build the weighted list of IDs
+    // --- Rarity normalization helper ---
+    function normalizeRarity(str) {
+        return str?.toLowerCase().trim().replace(/[\s_-]+/g, " ") || null;
+    }
+
+    const rareTagsNormalized = rareTags.map(t => normalizeRarity(t));
     const weightedIds = [];
+
     for (const item of filteredItems) {
         const name = item.name?.toLowerCase() || "";
         let weight = 1;
 
-        // Try to get rarity from multiple possible locations, starting with the DDB type field
-        const detectedTag =
-		  item.flags?.ddbimporter?.dndbeyond?.type?.toLowerCase() ||
-		  item.system?.rarity?.toLowerCase() ||
-		  availableRarityTags.find(tag => {
-			const pattern = new RegExp(`\\b${tag}\\b`, "i");
-			return pattern.test(name);
-		  }) ||
-		  (fallbackCommon.some(f => name.includes(f)) ? "common" : null);
+        // -----------------------------
+        // Audit-style rarity detection
+        // -----------------------------
+        const ddbType = item.flags?.ddbimporter?.dndbeyond?.type?.toLowerCase();
+        const systemRarity = item.system?.rarity?.toLowerCase();
 
+        let detectedTag = null;
+
+        // Prefer structured fields first
+        for (const field of [ddbType, systemRarity]) {
+            if (field && rareTagsNormalized.includes(normalizeRarity(field))) {
+                detectedTag = normalizeRarity(field);
+                break;
+            }
+        }
+
+        // Fallback to name + system + flags text search
+        if (!detectedTag) {
+            const fullText = `${item.name} ${JSON.stringify(item.system || {})} ${JSON.stringify(item.flags || {})}`.toLowerCase().replace(/[\s_-]+/g, "");
+            for (const tag of rareTagsNormalized) {
+                if (fullText.includes(tag.replace(/\s/g, ""))) {
+                    detectedTag = tag;
+                    break;
+                }
+            }
+        }
+
+        // Debug example
+        if (item.name.toLowerCase().includes("potion of speed")) {
+            console.log("DEBUG RARITY:", {
+                name: item.name,
+                ddbType,
+                systemRarity,
+                detectedTag,
+                allFlags: item.flags?.ddbimporter?.dndbeyond
+            });
+        }
+
+        // -----------------------------
+        // Apply strict or loose rarity rules
+        // -----------------------------
         if (strictRarity) {
-            // In strict mode, only add items if their detected tag is in the rareTags list
-            if (detectedTag && rareTags.includes(detectedTag)) {
+            if (detectedTag && rareTagsNormalized.includes(detectedTag)) {
                 weight = 3;
                 weightedIds.push(...Array(weight).fill(item._id));
+            } else {
+                console.debug("Skipped (rarity mismatch):", { name: item.name, detectedTag, allowedTags: rareTagsNormalized });
             }
         } else {
-            // In non-strict mode, favor items with a matching tag or a common fallback
-            const matchesTag = detectedTag && rareTags.includes(detectedTag);
-            const matchesFallback = rareTags.includes("common") && fallbackCommon.some(f => name.includes(f));
-
-            if (matchesTag || matchesFallback) {
-                weight = 3;
-            }
-
+            const matchesTag = detectedTag && rareTagsNormalized.includes(detectedTag);
+            const matchesFallback = rareTagsNormalized.includes("common") && fallbackCommon.some(f => name.includes(f));
+            if (matchesTag || matchesFallback) weight = 3;
             weightedIds.push(...Array(weight).fill(item._id));
         }
     }
@@ -629,37 +702,90 @@ game.sanctumMerchant.populateMerchant = async function(options = {}) {
     const roll = await (new Roll(rollFormula)).evaluate({ async: true });
     const numToSelect = Math.min(Math.max(0, roll.total ?? 0), weightedIds.length);
 
-    // Shuffle the weighted IDs and get a list of unique items to create
     const selectedIds = shuffleArray(weightedIds).slice(0, numToSelect);
     const uniqueIds = [...new Set(selectedIds)];
 
+    // Load full item documents only for the selected unique items
     const docs = await Promise.all(uniqueIds.map(id => pack.getDocument(id)));
 
     for (const token of canvas.tokens.controlled) {
         const actor = token.actor;
         if (!actor) continue;
 
-        // Remove duplicates and only add items if they don't already exist
         const actorItems = new Set(actor.items.map(i => i.name));
-        const newItems = docs
-            .filter(d => !actorItems.has(d.name))
-            .map(d => d.toObject());
+        const newItems = docs.filter(d => !actorItems.has(d.name)).map(d => d.toObject());
 
         if (newItems.length > 0) {
             await actor.createEmbeddedDocuments("Item", newItems);
+
             const playerRecipients = game.users.filter(u => u.active && !u.isGM).map(u => u.id);
             const itemNames = newItems.map(i => i.name).join(", ");
             const merchantName = token.name || "The Merchant";
-            const message = options.merchantMessage || `🧿 Got somethin' that might interest ya'!`;
-			ChatMessage.create({
-			  speaker: { alias: merchantName },
-			  content: `"${message} : <strong>${itemNames}</strong>. Fine items, indeed!"`,
-			  whisper: playerRecipients
-			});
+            const message = merchantMessage || `🧿 Got somethin' that might interest ya'!`;
 
+            ChatMessage.create({
+                speaker: { alias: merchantName },
+                content: `${message} : <strong>${itemNames}</strong>. Fine items, indeed!`,
+                whisper: playerRecipients
+            });
         }
     }
 };
+
+		game.sanctumMerchant.debugRarity = async function({
+			compendiumName = "world.ddb-oathbreaker-ddb-items",
+			rareTags = ["rare", "very rare", "legendary", "exotic", "sanctum-blessed"]
+		} = {}) {
+
+			const pack = game.packs.get(compendiumName);
+			if (!pack) return console.error(`Compendium "${compendiumName}" not found.`);
+
+			const index = await pack.getIndex({ fields: ["name", "type", "flags", "system"] });
+			const normalize = str => str?.toLowerCase().trim().replace(/[\s_-]+/g, " ") || null;
+			const rareTagsNormalized = rareTags.map(normalize);
+
+			const rows = [];
+
+			for (const item of index) {
+				const name = item.name || "";
+
+				// Structured rarity detection
+				const ddbType = item.flags?.ddbimporter?.dndbeyond?.type?.toLowerCase();
+				const systemRarity = item.system?.rarity?.toLowerCase();
+				let detectedTag = null;
+
+				for (const field of [ddbType, systemRarity]) {
+					if (field && rareTagsNormalized.includes(normalize(field))) {
+						detectedTag = normalize(field);
+						break;
+					}
+				}
+
+				// Fallback to text search
+				if (!detectedTag) {
+					const fullText = `${item.name} ${JSON.stringify(item.system || {})} ${JSON.stringify(item.flags || {})}`.toLowerCase().replace(/[\s_-]+/g, "");
+					for (const tag of rareTagsNormalized) {
+						if (fullText.includes(tag.replace(/\s/g, ""))) {
+							detectedTag = tag;
+							break;
+						}
+					}
+				}
+
+				const included = detectedTag && rareTagsNormalized.includes(detectedTag);
+				rows.push({
+					Name: item.name,
+					Type: item.type,
+					DDBType: ddbType,
+					SystemRarity: systemRarity,
+					Detected: detectedTag,
+					Matches: included
+				});
+			}
+
+			console.table(rows);
+			console.log(`🧾 Total items matching allowed tags: ${rows.filter(r => r.Matches).length}`);
+		};
 
 
   // --- Append GM-only button to Actors tab ---
@@ -672,7 +798,7 @@ game.sanctumMerchant.populateMerchant = async function(options = {}) {
       return;
     }
 
-        const headerActions = actorsTab.querySelector(".header-actions");
+    const headerActions = actorsTab.querySelector(".header-actions");
     if (!headerActions || actorsTab.querySelector("#sanctumMerchantButton")) return;
 
     const button = document.createElement("button");
