@@ -406,6 +406,7 @@ Hooks.once("ready", () => {
           label: "Audit Tags",
           callback: async () => {
             await game.sanctumMerchant.auditTags();
+			game.sanctumMerchant.openConfigDialog();
           }
         },
         cancel: { label: "Cancel" }
@@ -833,6 +834,537 @@ game.sanctumMerchant.populateMerchantWithJSON = async function(options = {}) {
   console.table(rows);
   console.log(`🧾 Total items matching allowed tags: ${rows.filter(r => r.Matches).length}`);
 };
+
+game.sanctumMerchant.auditTags = async function () {
+
+  const compendiumName = game.settings.get("sanctum-merchant", "compendium");
+
+  const pack = game.packs.get(compendiumName);
+
+  if (!pack) return ui.notifications.error(`Compendium "${compendiumName}" not found.`);
+
+
+
+  const index = await pack.getIndex({ fields: ["name", "type", "flags", "system"] });
+
+  const tagGroups = {};
+
+
+
+  for (const tag of availableRarityTags) {
+
+    tagGroups[tag] = [];
+
+  }
+
+
+
+	for (const item of index) {
+
+	  const name = item.name?.toLowerCase() || "";
+
+
+
+	  // 🎯 Structured rarity fields
+
+	  const ddbType = item.flags?.ddbimporter?.dndbeyond?.type?.toLowerCase();
+
+	  const systemRarity = item.system?.rarity?.toLowerCase();
+
+
+
+	  const rarityFields = [ddbType, systemRarity];
+
+
+
+	  let detectedTag = null;
+
+	  let highestWeight = 0;
+
+
+
+	  // 🧠 Prioritize structured fields
+
+	  for (const field of rarityFields) {
+
+		if (availableRarityTags.includes(field) && rarityWeights[field] > highestWeight) {
+
+		  detectedTag = field;
+
+		  highestWeight = rarityWeights[field];
+
+		}
+
+	  }
+
+
+
+	  // 🧪 Fallback to name-based detection
+
+	  if (!detectedTag) {
+
+		const fullText = `${item.name} ${JSON.stringify(item.system || {})} ${JSON.stringify(item.flags || {})}`
+
+		  .toLowerCase()
+
+		  .replace(/[\s_-]+/g, "");
+
+
+
+		for (const tag of availableRarityTags) {
+
+		  const normalized = tag.toLowerCase().replace(/[\s_-]+/g, "");
+
+		  const pattern = new RegExp(`\\b${normalized}\\b`, "i");
+
+		  if (pattern.test(fullText) && rarityWeights[tag] > highestWeight) {
+
+			detectedTag = tag;
+
+			highestWeight = rarityWeights[tag];
+
+		  }
+
+		}
+
+	  }
+
+
+
+	  // 🧙‍♂️ Final fallback to "common" keywords
+
+	  if (!detectedTag && fallbackCommon.some(f => name.includes(f))) {
+
+		detectedTag = "common";
+
+	  }
+
+
+
+	  // ✅ Group the item
+
+	  if (detectedTag) {
+
+		tagGroups[detectedTag].push({ item, tag: detectedTag });
+
+	  }
+
+
+
+	  // 🧪 Optional debug log
+
+	  //console.log(`🧪 ${item.name} → Tag: ${detectedTag} (Weight: ${highestWeight})`);
+
+	}
+
+
+
+
+
+			let output = `
+
+		  <h2>🧮 Rarity Tag Audit</h2>
+
+		  <div style="margin-bottom:10px;">
+
+			<label for="name-filter">Filter by name:</label>
+
+			<input type="text" id="name-filter" placeholder="e.g. potion, scroll, hat" style="width: 200px; margin-left: 6px;">
+
+		  </div>
+
+		  <div style="height:calc(100% - 40px);overflow-y:auto;" id="audit-results">
+
+		`;
+
+
+
+
+
+		for (const [tag, items] of Object.entries(tagGroups)) {
+
+		  output += `
+
+			<div class="sanctum-tag-group" style="margin-bottom:10px;">
+
+			  <div class="sanctum-tag-header" data-tag="${tag}" style="cursor:pointer;font-weight:bold;background:#333;color:#fff;padding:6px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;">
+
+				  <span class="sanctum-tag-label">▶ ${tag} (${items.length})</span>
+
+				  <button type="button" class="stock-group" data-tag="${tag}" style="padding:2px 6px;font-size:0.75em;background:#3fa9f5;color:white;border:none;border-radius:3px;cursor:pointer;">
+
+					Stock All 🛒
+
+				  </button>
+
+				</div>
+
+
+
+			  <ul class="sanctum-tag-items" style="display:none;margin-top:6px;padding-left:20px;">
+
+				${items.map(({ item, tag }) => `
+
+				  <li style="margin-bottom: 4px;">
+
+					<div style="display: inline-block; white-space: nowrap;">
+
+					  <span class="sanctum-item-link" data-pack="${compendiumName}" data-id="${item._id}"
+
+						style="color:#3fa9f5;cursor:pointer;text-decoration:underline;">
+
+						${rarityIcons[tag] || ""} ${item.name}
+
+					  </span>
+
+					  <button class="stock-item" data-pack="${compendiumName}" data-id="${item._id}"
+
+						  title="Stock this item to selected token(s)"
+
+						  style="margin-left: 6px; width: 32px; height: 24px; font-size: 0.8em; background: #3fa9f5; color: white; border: none; border-radius: 3px; cursor: pointer; text-align: center; line-height: 1; vertical-align: middle;">
+
+						  🛒
+
+						</button>
+
+					</div>
+
+				  </li>
+
+				`).join("")}
+
+			</div>
+
+		  `;
+
+		}
+
+
+
+		  output += `</div>`;
+
+
+
+			new Dialog({
+
+			  title: "Sanctum Merchant Tag Audit",
+
+			  content: output,
+
+			  buttons: {
+
+				close: {
+
+				  label: "Close",
+
+				  callback: () => {} 
+
+				}
+
+			  },
+
+			  render: html => {
+
+				html.find(".sanctum-item-link").on("click", async function (event) {
+
+				  event.preventDefault();
+
+				  const packName = this.dataset.pack;
+
+				  const itemId = this.dataset.id;
+
+				  const pack = game.packs.get(packName);
+
+				  if (!pack) return;
+
+				  const doc = await pack.getDocument(itemId);
+
+				  if (doc) doc.sheet.render(true);
+
+				});
+
+
+
+				html.find(".sanctum-tag-header").on("click", function () {
+
+				  const itemsList = $(this).next(".sanctum-tag-items");
+
+				  const isVisible = itemsList.is(":visible");
+
+				  itemsList.slideToggle(150);
+
+				  $(this).html(`${isVisible ? "▶" : "▼"} ${$(this).text().slice(2)}`);
+
+				});
+
+
+
+				html.find(".stock-item").on("click", async function () {
+
+				  const packName = this.dataset.pack;
+
+				  const itemId = this.dataset.id;
+
+				  const pack = game.packs.get(packName);
+
+				  const doc = await pack.getDocument(itemId);
+
+				  if (!doc) return;
+
+
+
+				  for (const token of canvas.tokens.controlled) {
+
+					const actor = token.actor;
+
+					if (!actor) continue;
+
+
+
+					const actorItems = new Set(actor.items.map(i => i.name));
+
+					if (!actorItems.has(doc.name)) {
+
+					  await actor.createEmbeddedDocuments("Item", [doc.toObject()]);
+
+					  ui.notifications.info(`${doc.name} stocked to ${actor.name}`);
+
+					} else {
+
+					  ui.notifications.warn(`${actor.name} already has ${doc.name}`);
+
+					}
+
+				  }
+
+				});
+
+
+
+				html.find("#name-filter").on("keydown", function (event) {
+
+				  if (event.key === "Enter") {
+
+					const query = this.value.trim().toLowerCase();
+
+					const groups = html.find(".sanctum-tag-group");
+
+
+
+					groups.each(function () {
+
+					  const group = $(this);
+
+					  const items = group.find("li");
+
+					  let matchCount = 0;
+
+
+
+					  items.each(function () {
+
+						const itemName = $(this).find(".sanctum-item-link").text().toLowerCase();
+
+						const matches = itemName.includes(query);
+
+						$(this).toggle(matches);
+
+						if (matches) matchCount++;
+
+					  });
+
+
+
+					  // Show group only if it has matches
+
+					  group.toggle(matchCount > 0);
+
+
+
+					  // Expand group if it has matches
+
+					  const header = group.find(".sanctum-tag-header");
+
+					  const list = group.find(".sanctum-tag-items");
+
+					  if (matchCount > 0) {
+
+						list.show();
+
+						header.html(`▼ ${header.text().slice(2)}`);
+
+					  } else {
+
+						list.hide();
+
+						header.html(`▶ ${header.text().slice(2)}`);
+
+					  }
+
+					});
+
+				  }
+
+				});
+
+				html.closest(".app").on("keydown", function (event) {
+
+					  if (event.key === "Enter") {
+
+						const activeTag = event.target.tagName.toLowerCase();
+
+						if (activeTag === "input") {
+
+						  event.preventDefault();       // stops form submission
+
+						  event.stopImmediatePropagation(); // blocks Foundry's internal handler
+
+						  runNameFilter();              // manually trigger filter logic
+
+						}
+
+					  }
+
+				});
+
+				html.find(".stock-group").on("click", async function (event) {
+
+				  event.preventDefault(); // prevent any default behavior
+
+				  event.stopPropagation(); // prevent bubbling that might remove the button
+
+
+
+				  const tag = this.dataset.tag;
+
+				  const group = $(this).closest(".sanctum-tag-group");
+
+				  const items = group.find(".sanctum-item-link");
+
+
+
+				  if (!items.length) return;
+
+
+
+				  for (const token of canvas.tokens.controlled) {
+
+					const actor = token.actor;
+
+					if (!actor) continue;
+
+
+
+					const actorItems = new Set(actor.items.map(i => i.name));
+
+
+
+					for (const el of items) {
+
+					  const packName = el.dataset.pack;
+
+					  const itemId = el.dataset.id;
+
+					  const pack = game.packs.get(packName);
+
+					  const doc = await pack.getDocument(itemId);
+
+					  if (!doc) continue;
+
+
+
+					  if (!actorItems.has(doc.name)) {
+
+						await actor.createEmbeddedDocuments("Item", [doc.toObject()]);
+
+						ui.notifications.info(`${doc.name} stocked to ${actor.name}`);
+
+					  } else {
+
+						ui.notifications.warn(`${actor.name} already has ${doc.name}`);
+
+					  }
+
+					}
+
+				  }
+
+				});
+
+
+
+
+
+				function runNameFilter() {
+
+				  const query = html.find("#name-filter").val().trim().toLowerCase();
+
+				  const groups = html.find(".sanctum-tag-group");
+
+
+
+				  groups.each(function () {
+
+					const group = $(this);
+
+					const items = group.find("li");
+
+					let matchCount = 0;
+
+
+
+					items.each(function () {
+
+					  const itemName = $(this).find(".sanctum-item-link").text().toLowerCase();
+
+					  const matches = itemName.includes(query);
+
+					  $(this).toggle(matches);
+
+					  if (matches) matchCount++;
+
+					});
+
+
+
+					const header = group.find(".sanctum-tag-header");
+
+					const list = group.find(".sanctum-tag-items");
+
+
+
+					if (matchCount > 0) {
+
+					  group.show();
+
+					  list.show();
+
+					  header.html(`▼ ${header.text().slice(2)}`);
+
+					} else {
+
+					  group.hide();
+
+					}
+
+				  });
+
+				}
+
+			  }
+
+			}, {
+
+			  width: 700,
+
+			  height: 600,
+
+			  resizable: true
+
+			}).render(true);
+
+};
+
 
 
 
