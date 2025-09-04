@@ -126,7 +126,6 @@ You can stock merchants with custom JSON files. The `JSONImportManager` ensures 
 
 ## 📸 Screenshots
 
-*(Add screenshots of merchant sheet button, config dialog, and stocked inventory here)*
 
 ---
 
