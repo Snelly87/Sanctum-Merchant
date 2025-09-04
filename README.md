@@ -131,4 +131,4 @@ You can stock merchants with custom JSON files. The `JSONImportManager` ensures 
 
 ## 📜 License
 
-MIT License. Free to use, modify, and distribute.
+Free to use.
