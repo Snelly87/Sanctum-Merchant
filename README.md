@@ -1,6 +1,6 @@
 # 🛒 Sanctum Merchant
 
-A Foundry VTT module that dynamically stocks merchant actors with items from compendiums or custom JSON sources. Perfect for campaigns that want immersive, randomized shops without manual inventory management. 
+A Foundry VTT module that dynamically stocks actors with items from compendiums or custom JSON sources. Perfect for campaigns that want immersive, randomized shops without manual inventory management. 
 
 ---
 
@@ -30,7 +30,7 @@ Item Piles
 
 ## 🚀 Usage
 
-1. Open any **merchant actor sheet**.
+1. Open any **actor sheet**.
 2. Click the **Stock Merchant** button.
 3. In the config dialog:
 
@@ -103,7 +103,7 @@ You can stock merchants with custom JSON files. The `JSONImportManager` ensures 
 
 ### UI Injection
 
-* Adds a **Stock Merchant** button directly on merchant sheets.
+* Adds a **Stock Merchant** button directly on the actor tab.
 
 ### Utilities
 
