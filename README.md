@@ -31,7 +31,7 @@ Item Piles
 ## 🚀 Usage
 
 1. Open any **actor sheet**.
-2. Click the **Stock Merchant** button.
+2. Click the **Stock Merchant** button on the actors tab.
 3. In the config dialog:
 
    * Select source (compendium or JSON).
