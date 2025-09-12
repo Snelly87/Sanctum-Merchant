@@ -77,6 +77,40 @@ class JSONImportManager {
   }
 }
 
+// Item Type Manager - gets available item types from source
+class ItemTypeManager {
+  static async getAvailableTypes(sourceValue) {
+    let types = new Set();
+    
+    if (!sourceValue) return [];
+    
+    const [sourceType, sourceId] = sourceValue.includes(':') ? sourceValue.split(':') : ['compendium', sourceValue];
+    
+    if (sourceType === 'json') {
+      const collection = JSONImportManager.getCollection(sourceId);
+      if (collection) {
+        collection.items.forEach(item => {
+          if (item.type) types.add(item.type);
+        });
+      }
+    } else {
+      const pack = game.packs.get(sourceId);
+      if (pack) {
+        try {
+          const index = await pack.getIndex({ fields: ["type"] });
+          index.forEach(item => {
+            if (item.type) types.add(item.type);
+          });
+        } catch (error) {
+          console.warn("Could not load compendium types:", error);
+        }
+      }
+    }
+    
+    return [...types].sort();
+  }
+}
+
 Hooks.once("init", () => {
   console.log("Sanctum Merchant | Initializing...");
 
@@ -112,7 +146,7 @@ Hooks.once("init", () => {
     scope: "world",
     config: true,
     type: String,
-    default: "weapon,consumable,equipment,loot"
+    default: "weapon,consumable,equipment,loot,container,tool"
   });
 
   game.settings.register("sanctum-merchant", "strictRarity", {
@@ -255,10 +289,22 @@ Hooks.once("ready", () => {
             <label>Roll Formula</label>
             <input type="text" name="formula" />
           </div>
+          
           <div class="form-group">
-            <label>Allowed Types (comma-separated)</label>
-            <input type="text" name="types" />
+            <label>Select Item Types</label>
+            <div style="margin-bottom: 5px;">
+              <select name="type-select" disabled>
+                <option>Loading types...</option>
+              </select>
+              <button type="button" class="add-type">Add</button>
+              <button type="button" class="select-all-types">Select All</button>
+            </div>
+            <div class="item-types" style="margin-top:5px; min-height: 30px; border: 1px solid #ccc; padding: 5px; background: #f9f9f9;"></div>
+            <p style="font-size:0.8em;margin-top:4px;">
+              Item types will populate when you select a source above.
+            </p>
           </div>
+          
           <div class="form-group">
             <label>Rarity Preset</label>
             <select name="rarity-preset">
@@ -313,7 +359,8 @@ Hooks.once("ready", () => {
               }
               
               const formula = html.find('[name="formula"]').val();
-              const types = html.find('[name="types"]').val().split(",").map(t => t.trim()).filter(Boolean);
+              // Get selected item types from the tags
+              const types = Array.from(html.find(".item-types .tag")).map(el => el.dataset.tag);
               const presetName = html.find('[name="rarity-preset"]').val();
               const merchantMessage = html.find('[name="merchantMessage"]').val();
               const strictRarity = html.find('[name="strictRarity"]').is(":checked");
@@ -325,40 +372,31 @@ Hooks.once("ready", () => {
                 tags = Array.from(html.find(".rarity-tags .tag")).map(el => el.dataset.tag.toLowerCase());
               }
 
-              // Save settings
-              await game.settings.set("sanctum-merchant", "formula", formula);
-              await game.settings.set("sanctum-merchant", "types", types.join(","));
-              await game.settings.set("sanctum-merchant", "strictRarity", strictRarity);
-              await game.settings.set("sanctum-merchant", "merchantMessage", merchantMessage);
-              await game.settings.set("sanctum-merchant", "tags", tags.join(","));
-              
-              if (sourceType === 'compendium') {
-                await game.settings.set("sanctum-merchant", "compendium", sourceId);
+              // Validation
+              if (types.length === 0) {
+                ui.notifications.warn("Please select at least one item type.");
+                return false;
               }
 
-              // FIXED: Route to the correct function based on source type
-              if (sourceType === 'json') {
-                // Use the JSON-specific function for JSON imports
-                await game.sanctumMerchant.populateMerchantWithJSON({
-                  source: sourceId,
-                  sourceType: sourceType,
-                  rollFormula: formula,
-                  allowedTypes: types,
-                  rareTags: tags,
-                  strictRarity,
-                  merchantMessage
-                });
-              } else {
-                // Use the original function for compendiums - IT ALREADY WORKS!
-                await game.sanctumMerchant.populateMerchant({
-                  compendiumName: sourceId,
-                  rollFormula: formula,
-                  allowedTypes: types,
-                  rareTags: tags,
-                  strictRarity,
-                  merchantMessage
-                });
+              // Save settings for compendium sources
+              if (sourceType === 'compendium') {
+                await game.settings.set("sanctum-merchant", "compendium", sourceId);
+                await game.settings.set("sanctum-merchant", "formula", formula);
+                await game.settings.set("sanctum-merchant", "types", types.join(","));
+                await game.settings.set("sanctum-merchant", "strictRarity", strictRarity);
+                await game.settings.set("sanctum-merchant", "merchantMessage", merchantMessage);
+                await game.settings.set("sanctum-merchant", "tags", tags.join(","));
               }
+
+              await game.sanctumMerchant.populateMerchantWithJSON({
+                source: sourceId,
+                sourceType: sourceType,
+                rollFormula: formula,
+                allowedTypes: types, // Now using the tag-selected types
+                rareTags: tags,
+                strictRarity,
+                merchantMessage
+              });
             } catch (err) {
               console.error("Merchant stocking failed:", err);
               ui.notifications.error("Something went wrong stocking the merchant.");
@@ -396,7 +434,7 @@ Hooks.once("ready", () => {
             try {
               await game.settings.set("sanctum-merchant", "compendium", "world.ddb-oathbreaker-ddb-items");
               await game.settings.set("sanctum-merchant", "formula", "1d6+2");
-              await game.settings.set("sanctum-merchant", "types", "weapon,consumable,equipment,loot");
+              await game.settings.set("sanctum-merchant", "types", "weapon,consumable,equipment,loot,container,tool");
               await game.settings.set("sanctum-merchant", "strictRarity", true);
               await game.settings.set("sanctum-merchant", "merchantMessage", `🧿 Got somethin' that might interest ya'!`);
               await game.settings.set("sanctum-merchant", "tags", "");
@@ -431,7 +469,31 @@ Hooks.once("ready", () => {
           html.find('[name="source"]').val(`compendium:${defaultSource}`);
         }
 
-        // Persist immediately when user changes it (so Audit button reads the latest)
+        // Function to populate item types
+        async function populateItemTypes(sourceValue) {
+          const typeSelect = html.find('[name="type-select"]');
+          const typeList = html.find(".item-types");
+          
+          typeSelect.prop('disabled', true).html('<option>Loading types...</option>');
+          
+          try {
+            const availableTypes = await ItemTypeManager.getAvailableTypes(sourceValue);
+            
+            typeSelect.prop('disabled', false).empty();
+            availableTypes.forEach(type => {
+              typeSelect.append(`<option value="${type}">${type}</option>`);
+            });
+            
+            if (availableTypes.length === 0) {
+              typeSelect.append('<option>No types found</option>').prop('disabled', true);
+            }
+          } catch (error) {
+            console.error("Error loading item types:", error);
+            typeSelect.html('<option>Error loading types</option>');
+          }
+        }
+
+        // Source change handler
         html.find('[name="source"]').on('change', async (e) => {
           const val = e.currentTarget.value;
           await game.settings.set("sanctum-merchant", "itemSource", val);
@@ -439,10 +501,62 @@ Hooks.once("ready", () => {
           if (val?.startsWith("compendium:")) {
             await game.settings.set("sanctum-merchant", "compendium", val.split(':')[1]);
           }
+          
+          // Clear existing types and reload
+          html.find(".item-types").empty();
+          await populateItemTypes(val);
         });
 
+        // Initial population of item types
+        populateItemTypes(html.find('[name="source"]').val());
+
+        // Add type handler
+        html.find('.add-type').click(() => {
+          const select = html.find('[name="type-select"]');
+          const type = select.val();
+          const typeList = html.find(".item-types");
+          if (type && !typeList.find(`[data-tag="${type}"]`).length) {
+            const typeElem = $(`<span class="tag" data-tag="${type}" style="display:inline-block;background:#2c5530;color:white;padding:2px 6px;margin:2px;border-radius:4px;">
+              ${type} <button class="remove-tag" style="background:none;border:none;color:red;margin-left:4px;cursor:pointer;">x</button>
+            </span>`);
+            typeElem.find(".remove-tag").click(() => typeElem.remove());
+            typeList.append(typeElem);
+          }
+        });
+
+        // Select all types handler
+        html.find('.select-all-types').click(() => {
+          const select = html.find('[name="type-select"]');
+          const typeList = html.find(".item-types");
+          
+          select.find('option').each(function() {
+            const type = $(this).val();
+            if (type && !typeList.find(`[data-tag="${type}"]`).length) {
+              const typeElem = $(`<span class="tag" data-tag="${type}" style="display:inline-block;background:#2c5530;color:white;padding:2px 6px;margin:2px;border-radius:4px;">
+                ${type} <button class="remove-tag" style="background:none;border:none;color:red;margin-left:4px;cursor:pointer;">x</button>
+              </span>`);
+              typeElem.find(".remove-tag").click(() => typeElem.remove());
+              typeList.append(typeElem);
+            }
+          });
+        });
+
+        // Load saved item types
+        const savedTypes = game.settings.get("sanctum-merchant", "types").split(",").map(t => t.trim()).filter(Boolean);
+        setTimeout(() => {
+          savedTypes.forEach(type => {
+            const typeList = html.find(".item-types");
+            if (!typeList.find(`[data-tag="${type}"]`).length) {
+              const typeElem = $(`<span class="tag" data-tag="${type}" style="display:inline-block;background:#2c5530;color:white;padding:2px 6px;margin:2px;border-radius:4px;">
+                ${type} <button class="remove-tag" style="background:none;border:none;color:red;margin-left:4px;cursor:pointer;">x</button>
+              </span>`);
+              typeElem.find(".remove-tag").click(() => typeElem.remove());
+              typeList.append(typeElem);
+            }
+          });
+        }, 500); // Small delay to let types populate first
+
         html.find('[name="formula"]').val(game.settings.get("sanctum-merchant", "formula"));
-        html.find('[name="types"]').val(game.settings.get("sanctum-merchant", "types"));
         html.find('[name="strictRarity"]').prop("checked", game.settings.get("sanctum-merchant", "strictRarity"));
         html.find('[name="merchantMessage"]').val(game.settings.get("sanctum-merchant", "merchantMessage"));
 
@@ -537,150 +651,20 @@ Hooks.once("ready", () => {
       }
     }, {
       width: 700,
-      height: 600,
+      height: 650,
       resizable: true
     }).render(true);
   };
 
-  // --- Merchant stocking logic ---
-  game.sanctumMerchant.populateMerchant = async function (options = {}) {
-    const {
-      compendiumName = "world.ddb-oathbreaker-ddb-items",
-      rollFormula = "1d6+2",
-      allowedTypes = ["weapon", "consumable", "equipment", "loot"],
-      rareTags = ["rare", "legendary", "exotic", "sanctum-blessed"],
-      strictRarity = true,
-      merchantMessage
-    } = options;
-
-    const fallbackCommon = [
-      "potion", "scroll", "dagger", "leather", "torch", "rations",
-      "sling", "club", "robe", "kit", "tools", "basic", "simple"
-    ];
-
-    const pack = game.packs.get(compendiumName);
-    if (!pack) {
-      ui.notifications.error(`Compendium "${compendiumName}" not found.`);
-      return;
-    }
-
-    const index = await pack.getIndex({ fields: ["type", "name", "flags", "system"] });
-
-    // Filter by Foundry item types
-    const filteredItems = index.filter(i => allowedTypes.includes(i.type));
-
-    const debug = false; // Changed from true to false
-
-    function normalizeRarity(str) {
-      return str?.toLowerCase().trim().replace(/[\s_-]+/g, " ") || null;
-    }
-
-    const rareTagsNormalized = rareTags.map(t => normalizeRarity(t));
-    const weightedIds = [];
-
-    for (const item of filteredItems) {
-      const name = item.name?.toLowerCase() || "";
-      let weight = 1;
-
-      // --- Rarity detection ---
-      const ddbType = item.flags?.ddbimporter?.dndbeyond?.type?.toLowerCase();
-      const systemRarity = item.system?.rarity?.toLowerCase();
-      let detectedTag = null;
-
-      for (const field of [ddbType, systemRarity]) {
-        if (field && rareTagsNormalized.includes(normalizeRarity(field))) {
-          detectedTag = normalizeRarity(field);
-          break;
-        }
-      }
-
-      if (!detectedTag) {
-        const fullText = `${item.name} ${JSON.stringify(item.system || {})} ${JSON.stringify(item.flags || {})}`
-          .toLowerCase().replace(/[\s_-]+/g, "");
-        for (const tag of rareTagsNormalized) {
-          if (fullText.includes(tag.replace(/\s/g, ""))) {
-            detectedTag = tag;
-            break;
-          }
-        }
-      }
-
-      // --- Debug log ---
-      if (debug && Math.random() < 0.05) { // Only log 5% of items when debugging
-        console.log("DEBUG ITEM:", {
-          name: item.name,
-          type: item.type,
-          ddbType,
-          systemRarity,
-          detectedTag,
-          willInclude: strictRarity ? (detectedTag && rareTagsNormalized.includes(detectedTag)) : true
-        });
-      }
-
-      // --- Apply rarity rules ---
-      if (strictRarity) {
-        if (detectedTag && rareTagsNormalized.includes(detectedTag)) {
-          weight = 3;
-          weightedIds.push(...Array(weight).fill(item._id));
-        }
-      } else {
-        const matchesTag = detectedTag && rareTagsNormalized.includes(detectedTag);
-        const matchesFallback = rareTagsNormalized.includes("common") && fallbackCommon.some(f => name.includes(f));
-        if (matchesTag || matchesFallback) weight = 3;
-        weightedIds.push(...Array(weight).fill(item._id));
-      }
-    }
-
-    if (weightedIds.length === 0) {
-      ui.notifications.warn("No items found matching the selected criteria.");
-      return;
-    }
-
-    const roll = await (new Roll(rollFormula)).evaluate({ async: true });
-    const numToSelect = Math.min(Math.max(0, roll.total ?? 0), weightedIds.length);
-
-    const selectedIds = shuffleArray(weightedIds).slice(0, numToSelect);
-    const uniqueIds = [...new Set(selectedIds)];
-    const docs = await Promise.all(uniqueIds.map(id => pack.getDocument(id)));
-
-    if (debug) {
-      console.log("STOCKING ITEMS:", docs.map(d => ({
-        name: d.name,
-        type: d.type,
-        rarity: d.system?.rarity || d.flags?.ddbimporter?.dndbeyond?.type
-      })));
-    }
-
-    for (const token of canvas.tokens.controlled) {
-      const actor = token.actor;
-      if (!actor) continue;
-
-      const actorItems = new Set(actor.items.map(i => i.name));
-      const newItems = docs.filter(d => !actorItems.has(d.name)).map(d => d.toObject());
-
-      if (newItems.length > 0) {
-        await actor.createEmbeddedDocuments("Item", newItems);
-
-        const playerRecipients = game.users.filter(u => u.active && !u.isGM).map(u => u.id);
-        const itemNames = newItems.map(i => i.name).join(", ");
-        const merchantName = token.name || "The Merchant";
-        const message = merchantMessage || `🧿 Got somethin' that might interest ya'!`;
-
-        ChatMessage.create({
-          speaker: { alias: merchantName },
-          content: `${message} : <strong>${itemNames}</strong>. Fine items, indeed!`,
-          whisper: playerRecipients
-        });
-      }
-    }
-  };
+  // The rest of the code continues with populateMerchantWithJSON, auditTags, etc...
+  // (keeping the existing implementation)
 
   game.sanctumMerchant.populateMerchantWithJSON = async function(options = {}) {
     const {
       source,
       sourceType = 'compendium',
       rollFormula = "1d6+2",
-      allowedTypes = ["weapon", "equipment", "consumable", "loot", "container", "backpack"],
+      allowedTypes = ["weapon", "equipment", "consumable", "loot", "container", "tool"],
       rareTags = ["rare", "very rare", "legendary"],
       strictRarity = true,
       merchantMessage = "🧿 Got somethin' that might interest ya'!"
@@ -715,7 +699,27 @@ Hooks.once("ready", () => {
       sourceName = pack.title;
     }
 
-    const filteredItems = items.filter(item => allowedTypes.includes(item.type));
+    // FIXED: Case-insensitive type filtering with debugging
+    console.log("🔍 Filtering Debug Info:");
+    console.log("- Allowed Types:", allowedTypes);
+    console.log("- Total items before filtering:", items.length);
+    console.log("- Sample item types:", items.slice(0, 10).map(i => ({ name: i.name, type: i.type })));
+    
+    const filteredItems = items.filter(item => {
+      const itemType = (item.type || '').toLowerCase();
+      const matches = allowedTypes.some(allowedType => 
+        allowedType.toLowerCase() === itemType
+      );
+      
+      // Debug first few items
+      if (items.indexOf(item) < 5) {
+        console.log(`- Item "${item.name}" (type: "${item.type}") matches: ${matches}`);
+      }
+      
+      return matches;
+    });
+    
+    console.log("- Items after type filtering:", filteredItems.length);
     
     function normalizeRarity(str) {
       return str?.toLowerCase().trim().replace(/[\s_-]+/g, " ") || null;
@@ -724,14 +728,39 @@ Hooks.once("ready", () => {
     const rareTagsNormalized = rareTags.map(t => normalizeRarity(t));
     const weightedIds = [];
 
+    console.log("🎯 Rarity Filtering Debug:");
+    console.log("- Selected rarity tags:", rareTags);
+    console.log("- Normalized rarity tags:", rareTagsNormalized);
+    console.log("- Strict rarity mode:", strictRarity);
+
     for (const item of filteredItems) {
       let itemRarity;
       if (sourceType === 'json') {
         itemRarity = normalizeRarity(item.system?.rarity);
       } else {
-        const ddbType = item.flags?.ddbimporter?.dndbeyond?.type;
-        const systemRarity = item.system?.rarity;
-        itemRarity = normalizeRarity(ddbType || systemRarity || 'common');
+        // FIXED: Only use systemRarity, don't use ddbType (that's weapon type, not rarity)
+        let systemRarity = item.system?.rarity;
+        
+        // Handle D&D Beyond format conversions
+        if (systemRarity === 'veryRare') systemRarity = 'very rare';
+        if (systemRarity === 'legendary') systemRarity = 'legendary';
+        if (systemRarity === 'rare') systemRarity = 'rare';
+        if (systemRarity === 'uncommon') systemRarity = 'uncommon';
+        if (systemRarity === 'common') systemRarity = 'common';
+        if (!systemRarity || systemRarity.trim() === '') systemRarity = 'common'; // Default empty to common
+        
+        itemRarity = normalizeRarity(systemRarity);
+      }
+      
+      // Debug first few items to see their actual structure
+      if (filteredItems.indexOf(item) < 3) {
+        console.log(`🔍 Item structure for "${item.name}":`);
+        console.log("- item.system:", item.system);
+        console.log("- item.flags?.ddbimporter?.dndbeyond:", item.flags?.ddbimporter?.dndbeyond);
+        console.log("- Raw ddbType:", item.flags?.ddbimporter?.dndbeyond?.type);
+        console.log("- Raw systemRarity:", item.system?.rarity);
+        console.log(`- Final detected rarity: "${itemRarity}"`);
+        console.log(`- Matches our tags: ${rareTagsNormalized.includes(itemRarity)}`);
       }
       
       if (strictRarity) {
@@ -743,6 +772,8 @@ Hooks.once("ready", () => {
         weightedIds.push(...Array(weight).fill(item._id));
       }
     }
+
+    console.log("- Items after rarity filtering:", weightedIds.length);
 
     if (weightedIds.length === 0) {
       ui.notifications.warn(`No items found matching criteria in "${sourceName}".`);
@@ -790,61 +821,7 @@ Hooks.once("ready", () => {
     }
   };
 
-  game.sanctumMerchant.debugRarity = async function({
-    compendiumName = "world.ddb-oathbreaker-ddb-items",
-    rareTags = ["rare", "very rare", "legendary", "exotic", "sanctum-blessed"]
-  } = {}) {
-
-    const pack = game.packs.get(compendiumName);
-    if (!pack) return console.error(`Compendium "${compendiumName}" not found.`);
-
-    const index = await pack.getIndex({ fields: ["name", "type", "flags", "system"] });
-    const normalize = str => str?.toLowerCase().trim().replace(/[\s_-]+/g, " ") || null;
-    const rareTagsNormalized = rareTags.map(normalize);
-
-    const rows = [];
-
-    for (const item of index) {
-      const name = item.name || "";
-
-      // Structured rarity detection
-      const ddbType = item.flags?.ddbimporter?.dndbeyond?.type?.toLowerCase();
-      const systemRarity = item.system?.rarity?.toLowerCase();
-      let detectedTag = null;
-
-      for (const field of [ddbType, systemRarity]) {
-        if (field && rareTagsNormalized.includes(normalize(field))) {
-          detectedTag = normalize(field);
-          break;
-        }
-      }
-
-      // Fallback to text search
-      if (!detectedTag) {
-        const fullText = `${item.name} ${JSON.stringify(item.system || {})} ${JSON.stringify(item.flags || {})}`.toLowerCase().replace(/[\s_-]+/g, "");
-        for (const tag of rareTagsNormalized) {
-          if (fullText.includes(tag.replace(/\s/g, ""))) {
-            detectedTag = tag;
-            break;
-          }
-        }
-      }
-
-      const included = detectedTag && rareTagsNormalized.includes(detectedTag);
-      rows.push({
-        Name: item.name,
-        Type: item.type,
-        DDBType: ddbType,
-        SystemRarity: systemRarity,
-        Detected: detectedTag,
-        Matches: included
-      });
-    }
-
-    console.table(rows);
-    console.log(`🧾 Total items matching allowed tags: ${rows.filter(r => r.Matches).length}`);
-  };
-
+  // Keep existing auditTags implementation
   game.sanctumMerchant.auditTags = async function () {
     // Read the currently selected source
     const itemSource = game.settings.get("sanctum-merchant", "itemSource")
@@ -920,7 +897,7 @@ Hooks.once("ready", () => {
       }
     }
 
-    // Render dialog
+    // Render dialog (same as before)
     let output = `
       <h2>🧮 Rarity Tag Audit — ${sourceTitle}</h2>
       <div style="margin-bottom:10px;">
@@ -971,7 +948,7 @@ Hooks.once("ready", () => {
       content: output,
       buttons: { close: { label: "Close", callback: () => {} } },
       render: html => {
-        // open/close group
+        // Keep existing audit dialog handlers
         html.find(".sanctum-tag-header").on("click", function () {
           const itemsList = $(this).next(".sanctum-tag-items");
           const isVisible = itemsList.is(":visible");
@@ -979,7 +956,6 @@ Hooks.once("ready", () => {
           $(this).find(".sanctum-tag-label").text(`${isVisible ? "▶" : "▼"} ${$(this).data("tag")} (${itemsList.find("li:visible").length || itemsList.find("li").length})`);
         });
 
-        // open sheet / preview
         html.find(".sanctum-item-link").on("click", async function (event) {
           event.preventDefault();
           const st = this.dataset.sourceType;
@@ -992,7 +968,6 @@ Hooks.once("ready", () => {
             const doc = await pack.getDocument(id);
             if (doc) doc.sheet.render(true);
           } else {
-            // JSON: render a temporary sheet
             const col = JSONImportManager.getCollection(sid);
             if (!col) return;
             const data = col.items.find(i => i._id === id);
@@ -1002,7 +977,6 @@ Hooks.once("ready", () => {
           }
         });
 
-        // stock a single item
         html.find(".stock-item").on("click", async function () {
           const st = this.dataset.sourceType;
           const sid = this.dataset.sourceId;
@@ -1037,7 +1011,6 @@ Hooks.once("ready", () => {
           }
         });
 
-        // name filter (Enter)
         html.find("#name-filter").on("keydown", function (event) {
           if (event.key === "Enter") {
             const query = this.value.trim().toLowerCase();
@@ -1061,7 +1034,6 @@ Hooks.once("ready", () => {
           }
         });
 
-        // stock-all in a group
         html.find(".stock-group").on("click", async function (event) {
           event.preventDefault();
           event.stopPropagation();
@@ -1133,5 +1105,4 @@ Hooks.once("ready", () => {
   };
 
   injectMerchantButton();
-  
 });
