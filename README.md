@@ -24,7 +24,7 @@ A Foundry VTT module that dynamically stocks actors with items from compendiums 
 ---
 
 ## ℹ️ Recommended Modules
-Item Piles
+Item Piles: https://foundryvtt.com/packages/item-piles
 
 ---
 
