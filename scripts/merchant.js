@@ -278,66 +278,102 @@ Hooks.once("ready", () => {
             </button>
           </div>
           
-          <div class="form-group">
-            <label>Item Source</label>
-            <select name="source">
-              ${sourceOptions}
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label>Roll Formula</label>
-            <input type="text" name="formula" />
-          </div>
-          
-          <div class="form-group">
-            <label>Select Item Types</label>
-            <div style="margin-bottom: 5px;">
-              <select name="type-select" disabled>
-                <option>Loading types...</option>
-              </select>
-              <button type="button" class="add-type">Add</button>
-              <button type="button" class="select-all-types">Select All</button>
-            </div>
-            <div class="item-types" style="margin-top:5px; min-height: 30px; border: 1px solid #ccc; padding: 5px; background: #f9f9f9;"></div>
-            <p style="font-size:0.8em;margin-top:4px;">
-              Item types will populate when you select a source above.
-            </p>
-          </div>
-          
-          <div class="form-group">
-            <label>Rarity Preset</label>
-            <select name="rarity-preset">
-              <option value="">None</option>
-              <option value="starter">Starter Gear</option>
-              <option value="vault">Legendary Vault</option>
-              <option value="bazaar">Exotic Bazaar</option>
-              <option value="cursed">Cursed Curiosities</option>
-              <option value="chaos">Chaos Stock</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Select Rarity Tags</label>
-            <select name="rarity-select">
-              ${availableRarityTags.map(tag => `<option value="${tag}">${tag}</option>`).join("")}
-            </select>
-            <button type="button" class="add-rarity">Add</button>
-            <div class="rarity-tags" style="margin-top:5px;"></div>
-          </div>
-          <div class="form-group">
-            <label>
-              <input type="checkbox" name="strictRarity" />
-              Strict rarity filtering
-            </label>
-            <p style="font-size:0.8em;margin-top:4px;">
-              When checked, only items with selected rarity tags will be considered.
-              When unchecked, all items are eligible but matching tags are favored.
-            </p>
-          </div>
-          <div class="form-group">
-            <label>Merchant Message</label>
-            <input type="text" name="merchantMessage" />
-          </div>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="width: 150px; padding: 8px 10px; vertical-align: top;">
+                <label>Item Source</label>
+              </td>
+              <td style="padding: 8px 10px;">
+                <select name="source" style="width: 100%; height: 28px; padding: 4px; margin: 0; box-sizing: border-box; border: 1px solid #ccc;">
+                  ${sourceOptions}
+                </select>
+              </td>
+            </tr>
+            
+            <tr>
+              <td style="width: 150px; padding: 8px 10px; vertical-align: top;">
+                <label>Roll Formula</label>
+              </td>
+              <td style="padding: 8px 10px;">
+                <input type="text" name="formula" style="width: 100%; height: 28px; padding: 4px; margin: 0; box-sizing: border-box; border: 1px solid #ccc;" />
+              </td>
+            </tr>
+            
+            <tr>
+              <td style="width: 150px; padding: 8px 10px; vertical-align: top;">
+                <label>Select Item Types</label>
+              </td>
+              <td style="padding: 8px 10px;">
+                <select name="type-select" disabled style="width: 100%; height: 28px; padding: 4px; margin: 0 0 5px 0; box-sizing: border-box; border: 1px solid #ccc;">
+                  <option>Loading types...</option>
+                </select>
+                <div>
+                  <button type="button" class="add-type" style="width: 50px;">Add</button>
+                  <button type="button" class="select-all-types" style="width: 70px; white-space: nowrap; margin-left: 5px;">Select All</button>
+                </div>
+                <div class="item-types" style="margin-top:5px; min-height: 30px; border: 1px solid #ccc; padding: 5px;"></div>
+                <p style="font-size:0.8em;margin-top:4px;">
+                  Item types will populate when you select a source above.
+                </p>
+              </td>
+            </tr>
+            
+            <tr>
+              <td style="width: 150px; padding: 8px 10px; vertical-align: top;">
+                <label>Rarity Preset</label>
+              </td>
+              <td style="padding: 8px 10px;">
+                <select name="rarity-preset" style="width: 100%; height: 28px; padding: 4px; margin: 0; box-sizing: border-box; border: 1px solid #ccc;">
+                  <option value="">None</option>
+                  <option value="starter">Starter Gear</option>
+                  <option value="vault">Legendary Vault</option>
+                  <option value="bazaar">Exotic Bazaar</option>
+                  <option value="cursed">Cursed Curiosities</option>
+                  <option value="chaos">Chaos Stock</option>
+                </select>
+              </td>
+            </tr>
+            
+            <tr>
+              <td style="width: 150px; padding: 8px 10px; vertical-align: top;">
+                <label>Select Rarity Tags</label>
+              </td>
+              <td style="padding: 8px 10px;">
+                <select name="rarity-select" style="width: 100%; height: 28px; padding: 4px; margin: 0 0 5px 0; box-sizing: border-box; border: 1px solid #ccc;">
+                  ${availableRarityTags.map(tag => `<option value="${tag}">${tag}</option>`).join("")}
+                </select>
+                <div>
+                  <button type="button" class="add-rarity" style="width: 50px;">Add</button>
+                </div>
+                <div class="rarity-tags" style="margin-top:5px;"></div>
+              </td>
+            </tr>
+            
+            <tr>
+              <td style="width: 150px; padding: 8px 10px; vertical-align: top;">
+                <label>Strict Filtering</label>
+              </td>
+              <td style="padding: 8px 10px;">
+                <label>
+                  <input type="checkbox" name="strictRarity" />
+                  Strict rarity filtering
+                </label>
+                <p style="font-size:0.8em;margin-top:4px;">
+                  When checked, only items with selected rarity tags will be considered.
+                  When unchecked, all items are eligible but matching tags are favored.
+                </p>
+              </td>
+            </tr>
+            
+            <tr>
+              <td style="width: 150px; padding: 8px 10px; vertical-align: top;">
+                <label>Merchant Message</label>
+              </td>
+              <td style="padding: 8px 10px;">
+                <input type="text" name="merchantMessage" style="width: 100%; height: 28px; padding: 4px; margin: 0; box-sizing: border-box; border: 1px solid #ccc;" />
+              </td>
+            </tr>
+          </table>
         </form>
       `,
       buttons: {
@@ -516,8 +552,8 @@ Hooks.once("ready", () => {
           const type = select.val();
           const typeList = html.find(".item-types");
           if (type && !typeList.find(`[data-tag="${type}"]`).length) {
-            const typeElem = $(`<span class="tag" data-tag="${type}" style="display:inline-block;background:#2c5530;color:white;padding:2px 6px;margin:2px;border-radius:4px;">
-              ${type} <button class="remove-tag" style="background:none;border:none;color:red;margin-left:4px;cursor:pointer;">x</button>
+            const typeElem = $(`<span class="tag" data-tag="${type}" style="display:inline-block;background:#444!important;color:white!important;padding:2px 6px;margin:2px;border-radius:4px;">
+              ${type} <button class="remove-tag" style="background:none!important;border:none!important;color:red!important;margin-left:4px;cursor:pointer;">x</button>
             </span>`);
             typeElem.find(".remove-tag").click(() => typeElem.remove());
             typeList.append(typeElem);
@@ -531,8 +567,8 @@ Hooks.once("ready", () => {
           
           select.find('option').each(function() {
             const type = $(this).val();
-            if (type && !typeList.find(`[data-tag="${type}"]`).length) {
-              const typeElem = $(`<span class="tag" data-tag="${type}" style="display:inline-block;background:#2c5530;color:white;padding:2px 6px;margin:2px;border-radius:4px;">
+            if (!typeList.find(`[data-tag="${type}"]`).length) {
+              const typeElem = $(`<span class="tag" data-tag="${type}" style="display:inline-block;background:#444;color:white;padding:2px 6px;margin:2px;border-radius:4px;">
                 ${type} <button class="remove-tag" style="background:none;border:none;color:red;margin-left:4px;cursor:pointer;">x</button>
               </span>`);
               typeElem.find(".remove-tag").click(() => typeElem.remove());
@@ -547,8 +583,8 @@ Hooks.once("ready", () => {
           savedTypes.forEach(type => {
             const typeList = html.find(".item-types");
             if (!typeList.find(`[data-tag="${type}"]`).length) {
-              const typeElem = $(`<span class="tag" data-tag="${type}" style="display:inline-block;background:#2c5530;color:white;padding:2px 6px;margin:2px;border-radius:4px;">
-                ${type} <button class="remove-tag" style="background:none;border:none;color:red;margin-left:4px;cursor:pointer;">x</button>
+              const typeElem = $(`<span class="tag" data-tag="${type}" style="display:inline-block;background:#444!important;color:white!important;padding:2px 6px;margin:2px;border-radius:4px;">
+                ${type} <button class="remove-tag" style="background:none!important;border:none!important;color:red!important;margin-left:4px;cursor:pointer;">x</button>
               </span>`);
               typeElem.find(".remove-tag").click(() => typeElem.remove());
               typeList.append(typeElem);
