@@ -111,6 +111,563 @@ class ItemTypeManager {
   }
 }
 
+// Improved Item Piles Integration
+class SanctumMerchantItemPilesIntegration {
+  static currentMerchantActor = null;
+  static isIntegrationReady = false;
+  
+  static initialize() {
+    console.log("Sanctum Merchant | Initializing Item Piles integration...");
+    
+    if (!game.modules.get("item-piles")?.active) {
+      console.warn("Sanctum Merchant | Item Piles not detected - integration disabled");
+      return;
+    }
+    
+    // Wait for Item Piles to be ready
+    Hooks.once("item-piles-ready", () => {
+      this.setupHooks();
+    });
+    
+    // Fallback check
+    if (game.itempiles?.API) {
+      this.setupHooks();
+    } else {
+      // Try again after a delay
+      setTimeout(() => {
+        if (game.itempiles?.API) {
+          this.setupHooks();
+        }
+      }, 2000);
+    }
+  }
+  
+  static setupHooks() {
+    if (this.isIntegrationReady) return;
+    
+    console.log("Sanctum Merchant | Setting up Item Piles hooks");
+    
+    // Hook into various Item Piles interfaces
+    Hooks.on("renderApplication", this.onRenderApplication.bind(this));
+    
+    // Clean up when apps close
+    Hooks.on("closeApplication", (app) => {
+      if (app.actor === this.currentMerchantActor) {
+        this.currentMerchantActor = null;
+      }
+    });
+    
+    this.isIntegrationReady = true;
+    console.log("Sanctum Merchant | Item Piles integration ready");
+  }
+  
+  static onRenderApplication(app, html, data) {
+    if (!game.user.isGM) return;
+    
+    // Debug logging to see what apps are rendering
+    console.log("Sanctum Merchant | App rendered:", app.constructor.name, app);
+    
+    if (!this.isItemPilesMerchantApp(app)) return;
+    
+    console.log("Sanctum Merchant | Detected Item Piles merchant app, adding button");
+    
+    // Store the current merchant
+    this.currentMerchantActor = app.actor || app.merchant;
+    
+    // Instead of trying to insert into Item Piles DOM, create an integrated button
+    this.createIntegratedButton(app);
+  }
+  
+static createIntegratedButton(app) {
+  // Remove any existing buttons
+  $('.sanctum-merchant-itempiles-btn').remove();
+  
+  // Wait for the DOM to be fully rendered
+  setTimeout(() => {
+    const html = app.element;
+    
+    console.log("=== SANCTUM MERCHANT BUTTON DEBUG ===");
+    console.log("App:", app);
+    console.log("App constructor:", app.constructor.name);
+    console.log("HTML element:", html);
+    console.log("HTML length:", html?.length);
+    
+    if (!html || html.length === 0) {
+      console.error("Sanctum Merchant | No valid app element found");
+      return;
+    }
+    
+    // Log the full structure to understand what we're working with
+    console.log("Full HTML structure:");
+    console.log(html[0].outerHTML.substring(0, 500) + "...");
+    
+    const button = $(`
+      <button type="button" class="sanctum-merchant-itempiles-btn">
+        <i class="fas fa-coins"></i> Stock Merchant
+      </button>
+    `);
+    
+    // Constrained button styling for flexbox layouts
+    button.css({
+      'margin-right': '5px',
+      'padding': '4px 8px',
+      'white-space': 'nowrap',
+      'flex': '0 0 auto',        // Don't grow, don't shrink, auto width
+      'flex-grow': '0',          // Explicitly prevent growing
+      'flex-shrink': '0',        // Explicitly prevent shrinking
+      'width': 'auto',           // Auto width based on content
+      'min-width': 'auto',       // Don't enforce minimum width
+      'max-width': '120px',      // Cap the maximum width
+      'box-sizing': 'border-box' // Include padding/border in width
+    });
+    
+    button.on('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      console.log(`Sanctum Merchant | Opening for merchant: ${this.currentMerchantActor?.name}`);
+      
+      if (!game.sanctumMerchant?.openConfigDialog) {
+        ui.notifications.error("Sanctum Merchant not properly loaded.");
+        return;
+      }
+      
+      game.sanctumMerchant.openConfigDialog();
+    });
+    
+    let inserted = false;
+    
+    // Try multiple selectors to find window controls
+    const possibleSelectors = [
+      '.window-controls',
+      '.header-controls',
+      '.window-header .controls',
+      '.window-header button:last-child',
+      '.window-header'
+    ];
+    
+    for (const selector of possibleSelectors) {
+      const elements = html.find(selector);
+      console.log(`Selector "${selector}": found ${elements.length} elements`);
+      
+      if (elements.length > 0) {
+        console.log(`First element with "${selector}":`, elements[0]);
+        
+        if (selector === '.window-header') {
+          // If we found window header, wait a bit more for Svelte to render buttons
+          setTimeout(() => {
+            const headerElement = elements.first();
+            // Look for both button elements AND anchor elements with header-button class
+            const buttons = headerElement.find('button, a.header-button, .header-button');
+            console.log(`Buttons/links in window header (after delay): ${buttons.length}`);
+            
+            // Log detailed button information
+            buttons.each(function(i) {
+              const $btn = $(this);
+              const tagName = this.tagName.toLowerCase();
+              console.log(`  ${tagName.toUpperCase()} ${i}: text="${$btn.text().trim()}" title="${$btn.attr('title') || ''}" aria-label="${$btn.attr('aria-label') || ''}" classes="${$btn.attr('class') || ''}"`);
+            });
+            
+            // Also log the header structure to understand layout
+            console.log("Header HTML structure:", headerElement[0].outerHTML.substring(0, 400));
+            
+            if (buttons.length > 0) {
+              // Look for "Open Sheet" button more broadly - check aria-label too
+              let openSheetButton = null;
+              buttons.each(function() {
+                const $btn = $(this);
+                const text = $btn.text().trim().toLowerCase();
+                const title = ($btn.attr('title') || '').toLowerCase();
+                const ariaLabel = ($btn.attr('aria-label') || '').toLowerCase();
+                
+                console.log(`  Checking element: "${text}" title: "${title}" aria-label: "${ariaLabel}"`);
+                
+                if (text.includes('open') || text.includes('sheet') || 
+                    title.includes('open') || title.includes('sheet') ||
+                    ariaLabel.includes('open') || ariaLabel.includes('sheet')) {
+                  openSheetButton = $btn;
+                  console.log("  -> Found Open Sheet button!");
+                  return false; // break
+                }
+              });
+              
+            if (openSheetButton) {
+              // Debug: Let's clone an existing button and modify it instead
+              console.log("Sanctum Merchant | Cloning existing button to match styling");
+              
+              const clonedButton = openSheetButton.clone();
+              
+              // Modify the cloned button's content
+              clonedButton.removeClass('item-piles-open-actor-sheet')
+                         .addClass('item-piles-stock-merchant')
+                         .attr('aria-label', 'Stock Merchant');
+              
+              clonedButton.find('i').removeClass('fa-user').addClass('fa-coins');
+              clonedButton.find('span').text('Stock');
+              
+              // Add our click handler
+              clonedButton.off('click').on('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                console.log(`Sanctum Merchant | Opening for merchant: ${this.currentMerchantActor?.name}`);
+                
+                if (!game.sanctumMerchant?.openConfigDialog) {
+                  ui.notifications.error("Sanctum Merchant not properly loaded.");
+                  return;
+                }
+                
+                game.sanctumMerchant.openConfigDialog();
+              });
+              
+              openSheetButton.before(clonedButton);
+              console.log("Sanctum Merchant | Button cloned and inserted before Open Sheet button");
+            } else {
+              // Fallback: create our button and force debug the styling
+              console.log("Sanctum Merchant | Creating new button with extensive debugging");
+              
+              const button = $(`
+                <a class="header-button item-piles-stock-merchant svelte-ip-acci" aria-label="Stock Merchant" tabindex="0" role="button">
+                  <i class="fas fa-coins" title=""></i>
+                  <span class="svelte-ip-acci has-icon">Stock</span>
+                </a>
+              `);
+              
+              button.on('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                console.log(`Sanctum Merchant | Opening for merchant: ${this.currentMerchantActor?.name}`);
+                
+                if (!game.sanctumMerchant?.openConfigDialog) {
+                  ui.notifications.error("Sanctum Merchant not properly loaded.");
+                  return;
+                }
+                
+                game.sanctumMerchant.openConfigDialog();
+              });
+              
+              // Insert before the first button/link
+              buttons.first().before(button);
+              
+              // Debug the styling after a delay
+              setTimeout(() => {
+                const existingButton = buttons.first();
+                const ourButton = button;
+                
+                console.log("=== BUTTON STYLING DEBUG ===");
+                console.log("Existing button computed styles:");
+                const existingStyles = window.getComputedStyle(existingButton[0]);
+                console.log("Background:", existingStyles.backgroundColor);
+                console.log("Color:", existingStyles.color);
+                console.log("Border:", existingStyles.border);
+                console.log("Padding:", existingStyles.padding);
+                console.log("Font size:", existingStyles.fontSize);
+                
+                console.log("Our button computed styles:");
+                const ourStyles = window.getComputedStyle(ourButton[0]);
+                console.log("Background:", ourStyles.backgroundColor);
+                console.log("Color:", ourStyles.color);
+                console.log("Border:", ourStyles.border);
+                console.log("Padding:", ourStyles.padding);
+                console.log("Font size:", ourStyles.fontSize);
+                
+                console.log("CSS classes comparison:");
+                console.log("Existing classes:", existingButton[0].className);
+                console.log("Our classes:", ourButton[0].className);
+                
+              }, 200);
+              
+              console.log("Sanctum Merchant | Button inserted before first button/link");
+            }
+            } else {
+              console.log("Sanctum Merchant | Still no buttons/links found after delay");
+              // Position on right side if no buttons
+              button.css({
+                'position': 'absolute',
+                'right': '50px',
+                'top': '50%',
+                'transform': 'translateY(-50%)'
+              });
+              headerElement.css('position', 'relative');
+              headerElement.append(button);
+              console.log("Sanctum Merchant | Button positioned on right side");
+            }
+          }, 500); // Increased timeout
+          
+          inserted = true; // Mark as handled
+          break;
+        } else {
+          // Found controls container, insert the button
+          elements.first().prepend(button);
+          inserted = true;
+          console.log(`Sanctum Merchant | Button inserted using selector: ${selector}`);
+          break;
+        }
+      }
+    }
+    
+    // Last resort: find any header and add button with absolute positioning
+    if (!inserted) {
+      console.log("Sanctum Merchant | Trying absolute positioning fallback");
+      
+      const anyHeader = html.find('.window-header, .app-header, header').first();
+      console.log("Any header found:", anyHeader.length > 0);
+      
+      if (anyHeader.length > 0) {
+        button.css({
+          'position': 'absolute',
+          'top': '5px',
+          'right': '50px',
+          'z-index': '1000'
+        });
+        
+        anyHeader.css('position', 'relative');
+        anyHeader.append(button);
+        inserted = true;
+        console.log("Sanctum Merchant | Button added with absolute positioning");
+      }
+    }
+    
+    // Super last resort: add to the window somewhere visible
+    if (!inserted) {
+      console.log("Sanctum Merchant | Trying emergency fallback");
+      
+      button.css({
+        'position': 'fixed',
+        'top': '10px',
+        'right': '200px',
+        'z-index': '9999',
+        'background': '#ff4444',
+        'color': 'white',
+        'border': '2px solid yellow'
+      });
+      
+      $('body').append(button);
+      inserted = true;
+      console.log("Sanctum Merchant | Button added as emergency overlay");
+      
+      // Auto-remove after 10 seconds as this is clearly wrong
+      setTimeout(() => {
+        button.remove();
+        console.log("Sanctum Merchant | Emergency button auto-removed");
+      }, 10000);
+    }
+    
+    if (inserted) {
+      console.log("Sanctum Merchant | Button successfully inserted");
+      
+      // Remove button when window closes
+      const originalClose = app.close.bind(app);
+      app.close = async function(...args) {
+        $('.sanctum-merchant-itempiles-btn').remove();
+        console.log("Sanctum Merchant | Button removed on close");
+        return originalClose(...args);
+      };
+    } else {
+      console.error("Sanctum Merchant | Failed to insert button anywhere");
+    }
+    
+    console.log("=== END SANCTUM MERCHANT BUTTON DEBUG ===");
+    
+  }, 1000); // Increased timeout to 1 second
+}
+  
+  static isItemPilesMerchantApp(app) {
+    // Handle different app structures - some have app.actor, some have app.merchant
+    const actor = app.actor || app.merchant;
+    if (!actor) {
+      console.log("Sanctum Merchant | No actor/merchant found in app");
+      return false;
+    }
+    
+    const appName = app.constructor.name;
+    console.log("Sanctum Merchant | Checking app:", appName, "with actor:", actor.name);
+    
+    // More comprehensive app detection
+    const itemPilesAppPatterns = [
+      'ItemPile',
+      'Merchant', 
+      'MerchantApp',
+      'ItemPileInventoryApp',
+      'ItemPileMerchantApp'
+    ];
+    
+    const isItemPilesApp = itemPilesAppPatterns.some(pattern => 
+      appName.includes(pattern)
+    );
+    
+    if (isItemPilesApp) {
+      console.log("Sanctum Merchant | Found Item Piles app pattern:", appName);
+      return this.isItemPilesMerchant(actor);
+    }
+    
+    // Also check if it's any app with an actor that might be an Item Piles merchant
+    if (this.isItemPilesMerchant(actor)) {
+      console.log("Sanctum Merchant | Found merchant via actor check:", appName);
+      return true;
+    }
+    
+    return false;
+  }
+  
+  static isItemPilesMerchant(actor) {
+    if (!actor) {
+      console.log("Sanctum Merchant | No actor provided");
+      return false;
+    }
+    
+    console.log("Sanctum Merchant | Checking if actor is merchant:", actor.name);
+    
+    try {
+      if (!game.itempiles?.API?.isValidItemPile) {
+        console.log("Sanctum Merchant | Item Piles API not available, assuming this is a merchant");
+        return true; // If Item Piles API isn't available, assume it's a merchant since it came from a Merchant app
+      }
+      
+      const isValidPile = game.itempiles.API.isValidItemPile(actor);
+      console.log("Sanctum Merchant | isValidItemPile:", isValidPile);
+      
+      if (!isValidPile) {
+        console.log("Sanctum Merchant | Not a valid item pile");
+        return false;
+      }
+      
+      const pileData = game.itempiles.API.getActorFlagData(actor);
+      console.log("Sanctum Merchant | Pile data:", pileData);
+      
+      const isMerchant = pileData?.type === "merchant";
+      console.log("Sanctum Merchant | Is merchant:", isMerchant);
+      
+      return isMerchant;
+    } catch (error) {
+      console.error("Sanctum Merchant | Error checking Item Pile:", error);
+      // If there's an error with the API, but we got here from a MerchantApp, assume it's a merchant
+      return true;
+    }
+  }
+  
+  static getCurrentMerchant() {
+    // First try stored merchant
+    if (this.currentMerchantActor && this.isItemPilesMerchant(this.currentMerchantActor)) {
+      return this.currentMerchantActor;
+    }
+    
+    // Then check controlled tokens
+    for (const token of canvas.tokens.controlled) {
+      if (token.actor && this.isItemPilesMerchant(token.actor)) {
+        return token.actor;
+      }
+    }
+    
+    // Finally check open windows
+    for (const app of Object.values(ui.windows)) {
+      if (this.isItemPilesMerchantApp(app)) {
+        return app.actor || app.merchant;
+      }
+    }
+    
+    return null;
+  }
+  
+  static async addItemsToMerchant(merchant, items) {
+    if (!this.isItemPilesMerchant(merchant)) {
+      // Fallback to regular actor if not an Item Piles merchant
+      console.log("Sanctum Merchant | Adding items directly to actor (not Item Piles merchant)");
+      return this.addItemsDirect(merchant, items);
+    }
+    
+    try {
+      // Use Item Piles API for better integration
+      await game.itempiles.API.addItems(merchant, items);
+      console.log(`Sanctum Merchant | Added ${items.length} items via Item Piles API`);
+      return true;
+      
+    } catch (error) {
+      console.error("Failed to add items via Item Piles API:", error);
+      // Fallback to direct method
+      return this.addItemsDirect(merchant, items);
+    }
+  }
+  
+  static async addItemsDirect(merchant, items) {
+    try {
+      const actorItems = new Set(merchant.items.map(i => i.name));
+      const newItems = items.filter(d => !actorItems.has(d.name));
+      
+      if (newItems.length > 0) {
+        await merchant.createEmbeddedDocuments("Item", newItems);
+        console.log(`Sanctum Merchant | Added ${newItems.length} items directly`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Failed to add items directly:", error);
+      return false;
+    }
+  }
+  
+  static async clearMerchantInventory(merchant) {
+    if (!merchant) {
+      ui.notifications.error("No merchant provided to clear.");
+      return false;
+    }
+    
+    console.log(`Sanctum Merchant | Clearing ${merchant.name} - items: ${merchant.items.size}`);
+    
+    try {
+      let itemIds = [];
+      
+      // Handle different item collection types
+      if (merchant.items && typeof merchant.items.map === 'function') {
+        itemIds = merchant.items.map(i => i.id);
+      } else if (merchant.items && merchant.items.contents) {
+        itemIds = merchant.items.contents.map(i => i.id);
+      } else {
+        try {
+          for (const item of merchant.items) {
+            itemIds.push(item.id);
+          }
+        } catch (error) {
+          console.error("Could not iterate over items:", error);
+        }
+      }
+      
+      if (itemIds.length === 0) {
+        ui.notifications.warn(`${merchant.name} has no items to remove.`);
+        return true;
+      }
+      
+      // Try Item Piles API first if it's a merchant
+      if (this.isItemPilesMerchant(merchant) && game.itempiles?.API?.removeItems) {
+        try {
+          const itemsToRemove = merchant.items.map(item => ({
+            _id: item.id,
+            quantity: item.system?.quantity || 1
+          }));
+          
+          await game.itempiles.API.removeItems(merchant, itemsToRemove);
+          console.log(`Sanctum Merchant | Cleared via Item Piles API`);
+        } catch (error) {
+          console.warn("Item Piles API clear failed, using direct method:", error);
+          await merchant.deleteEmbeddedDocuments("Item", itemIds);
+        }
+      } else {
+        // Direct removal
+        await merchant.deleteEmbeddedDocuments("Item", itemIds);
+      }
+      
+      ui.notifications.info(`${merchant.name}'s inventory cleared (${itemIds.length} items)!`);
+      return true;
+      
+    } catch (error) {
+      console.error("Failed to clear merchant inventory:", error);
+      ui.notifications.error("Failed to clear merchant inventory.");
+      return false;
+    }
+  }
+}
+
 Hooks.once("init", () => {
   console.log("Sanctum Merchant | Initializing...");
 
@@ -126,7 +683,7 @@ Hooks.once("init", () => {
   game.settings.register("sanctum-merchant", "itemSource", {
     name: "Item Source (compendium or json)",
     scope: "world",
-    config: false, // hide from settings UI; controlled by dialog
+    config: false,
     type: String,
     default: "compendium:world.ddb-oathbreaker-ddb-items"
   });
@@ -206,7 +763,7 @@ const rarityIcons = {
   "sanctum-blessed": "🔮"
 };
 
-// --- Shuffle utility ---
+// Shuffle utility
 function shuffleArray(array) {
   let currentIndex = array.length, randomIndex;
   while (currentIndex !== 0) {
@@ -217,7 +774,7 @@ function shuffleArray(array) {
   return array;
 }
 
-// --- Available rarity tags ---
+// Available rarity tags
 const availableRarityTags = [
   "common", "uncommon", "rare", "very rare", "legendary",
   "exotic", "cursed", "forged", "sanctum-blessed"
@@ -239,10 +796,254 @@ const presetDescriptions = {
   chaos: "A wild mix of everything"
 };
 
+// Updated Stock Merchant callback
+const stockMerchantCallback = async (html) => {
+  try {
+    const sourceValue = html.find('[name="source"]').val();
+    await game.settings.set("sanctum-merchant", "itemSource", sourceValue);
+
+    let sourceType, sourceId;
+
+    if (sourceValue && sourceValue.includes(':')) {
+      [sourceType, sourceId] = sourceValue.split(':');
+    } else {
+      sourceType = 'compendium';
+      sourceId = sourceValue || game.settings.get("sanctum-merchant", "compendium");
+    }
+    
+    const formula = html.find('[name="formula"]').val();
+    const types = Array.from(html.find(".item-types .tag")).map(el => el.dataset.tag);
+    const presetName = html.find('[name="rarity-preset"]').val();
+    const merchantMessage = html.find('[name="merchantMessage"]').val();
+    const strictRarity = html.find('[name="strictRarity"]').is(":checked");
+
+    let tags;
+    if (presetName && rarityPresets[presetName]) {
+      tags = rarityPresets[presetName];
+    } else {
+      tags = Array.from(html.find(".rarity-tags .tag")).map(el => el.dataset.tag.toLowerCase());
+    }
+
+    // Validation
+    if (types.length === 0) {
+      ui.notifications.warn("Please select at least one item type.");
+      return false;
+    }
+
+    // Save settings for compendium sources
+    if (sourceType === 'compendium') {
+      await game.settings.set("sanctum-merchant", "compendium", sourceId);
+      await game.settings.set("sanctum-merchant", "formula", formula);
+      await game.settings.set("sanctum-merchant", "types", types.join(","));
+      await game.settings.set("sanctum-merchant", "strictRarity", strictRarity);
+      await game.settings.set("sanctum-merchant", "merchantMessage", merchantMessage);
+      await game.settings.set("sanctum-merchant", "tags", tags.join(","));
+    }
+
+    await game.sanctumMerchant.populateMerchantWithJSON({
+      source: sourceId,
+      sourceType: sourceType,
+      rollFormula: formula,
+      allowedTypes: types,
+      rareTags: tags,
+      strictRarity,
+      merchantMessage
+    });
+    
+    ui.notifications.info("Items stocked successfully!");
+    
+  } catch (err) {
+    console.error("Merchant stocking failed:", err);
+    ui.notifications.error("Something went wrong stocking the merchant.");
+  }
+
+  game.sanctumMerchant.openConfigDialog();
+  return false;
+};
+
+// Updated Clear Inventory callback
+const clearInventoryCallback = async () => {
+  try {
+    console.log("Sanctum Merchant | Clear inventory callback triggered");
+    
+    // Try to get merchant from Item Piles integration first
+    let merchant = SanctumMerchantItemPilesIntegration.getCurrentMerchant();
+    
+    // Fallback to controlled tokens if no Item Piles merchant found
+    if (!merchant) {
+      for (const token of canvas.tokens.controlled) {
+        if (token.actor) {
+          merchant = token.actor;
+          break;
+        }
+      }
+    }
+    
+    if (!merchant) {
+      ui.notifications.error("No merchant found to clear.");
+      return;
+    }
+    
+    const success = await SanctumMerchantItemPilesIntegration.clearMerchantInventory(merchant);
+    
+    if (success) {
+      ui.notifications.info("Inventory cleared successfully!");
+    }
+    
+  } catch (err) {
+    console.error("Inventory clear failed:", err);
+    ui.notifications.error("Something went wrong clearing the merchant.");
+  }
+  
+  game.sanctumMerchant.openConfigDialog();
+};
+
 Hooks.once("ready", () => {
+  console.log("🛒 Sanctum Merchant READY hook fired!");
+  
+  // Initialize Item Piles integration
+  SanctumMerchantItemPilesIntegration.initialize();
+  
   game.sanctumMerchant = game.sanctumMerchant || {};
   
-  // --- Enhanced Config dialog with JSON import ---
+  // Append GM-only button to Actors tab with better timing and debugging
+  const injectMerchantButton = () => {
+    if (!game.user.isGM) {
+      console.log("Sanctum Merchant | Not GM, skipping actors tab button");
+      return;
+    }
+
+    console.log("Sanctum Merchant | Attempting to inject actors tab button");
+    
+    const actorsTab = document.querySelector("#sidebar .tab[data-tab='actors']");
+    if (!actorsTab) {
+      console.log("Sanctum Merchant | Actors tab not found, retrying in 500ms");
+      setTimeout(injectMerchantButton, 500);
+      return;
+    }
+
+    const headerActions = actorsTab.querySelector(".header-actions");
+    if (!headerActions) {
+      console.log("Sanctum Merchant | Header actions not found, retrying in 500ms");
+      setTimeout(injectMerchantButton, 500);
+      return;
+    }
+    
+    if (actorsTab.querySelector("#sanctumMerchantButton")) {
+      console.log("Sanctum Merchant | Button already exists in actors tab");
+      return;
+    }
+
+    const button = document.createElement("button");
+    button.id = "sanctumMerchantButton";
+    button.innerHTML = `<i class="fas fa-coins"></i> Stock Merchant`;
+
+    button.addEventListener("click", () => {
+      console.log("Sanctum Merchant | Actors tab button clicked");
+      game.sanctumMerchant.openConfigDialog();
+    });
+
+    headerActions.appendChild(button);
+    console.log("🛒 Sanctum Merchant button appended to actors tab!");
+  };
+
+  // Try multiple times with different delays  
+  injectMerchantButton();
+  setTimeout(injectMerchantButton, 1000);
+  setTimeout(injectMerchantButton, 2000);
+  
+  // Also try when actors tab is rendered
+  Hooks.on("renderActorDirectory", () => {
+    console.log("Sanctum Merchant | ActorDirectory rendered, injecting button");
+    setTimeout(injectMerchantButton, 100);
+  });
+  
+  // Manual debug command for actors tab
+  game.sanctumMerchant.debugActorsTab = () => {
+    console.log("=== ACTORS TAB DEBUG ===");
+    console.log("User is GM:", game.user.isGM);
+    
+    const sidebar = document.querySelector("#sidebar");
+    console.log("Sidebar found:", !!sidebar);
+    
+    const actorsTab = document.querySelector("#sidebar .tab[data-tab='actors']");
+    console.log("Actors tab found:", !!actorsTab);
+    if (actorsTab) {
+      console.log("Actors tab HTML:", actorsTab.outerHTML.substring(0, 200) + "...");
+    }
+    
+    const headerActions = actorsTab?.querySelector(".header-actions");
+    console.log("Header actions found:", !!headerActions);
+    if (headerActions) {
+      console.log("Header actions HTML:", headerActions.outerHTML);
+      console.log("Header actions children:", headerActions.children.length);
+    }
+    
+    const existingButton = document.querySelector("#sanctumMerchantButton");
+    console.log("Existing button found:", !!existingButton);
+    
+    // Try to inject manually
+    if (game.user.isGM && actorsTab && headerActions && !existingButton) {
+      const button = document.createElement("button");
+      button.id = "sanctumMerchantButton";
+      button.innerHTML = `<i class="fas fa-coins"></i> Stock Merchant`;
+      
+      button.addEventListener("click", () => {
+        console.log("Manual actors tab button clicked");
+        game.sanctumMerchant.openConfigDialog();
+      });
+      
+      headerActions.appendChild(button);
+      console.log("Manual button injection attempted");
+    }
+  };
+  
+  // Manual fallback command for testing
+  game.sanctumMerchant.forceAddButton = () => {
+    console.log("Sanctum Merchant | Manual button addition triggered");
+    for (const app of Object.values(ui.windows)) {
+      console.log("Checking app:", app.constructor.name, app);
+      if ((app.actor || app.merchant) && SanctumMerchantItemPilesIntegration.isItemPilesMerchant(app.actor || app.merchant)) {
+        console.log("Found merchant app, creating integrated button");
+        SanctumMerchantItemPilesIntegration.currentMerchantActor = app.actor || app.merchant;
+        SanctumMerchantItemPilesIntegration.createIntegratedButton(app);
+        break; // Only create one button
+      }
+    }
+  };
+  
+  // Alternative direct insertion method
+  game.sanctumMerchant.injectButtonNow = () => {
+    const merchantApp = Object.values(ui.windows).find(app => app.constructor.name === 'MerchantApp');
+    if (!merchantApp) {
+      console.log("No MerchantApp found");
+      return;
+    }
+    
+    console.log("Found MerchantApp, attempting direct injection");
+    const html = merchantApp.element;
+    
+    // Create a very obvious button
+    const button = $(`
+      <div style="position: fixed; top: 100px; right: 20px; z-index: 99999; background: red; color: white; padding: 10px; border: 3px solid yellow; cursor: pointer; font-size: 14px; font-weight: bold;">
+        STOCK MERCHANT - CLICK ME
+      </div>
+    `);
+    
+    button.on('click', (e) => {
+      e.preventDefault();
+      SanctumMerchantItemPilesIntegration.currentMerchantActor = merchantApp.actor || merchantApp.merchant;
+      game.sanctumMerchant.openConfigDialog();
+    });
+    
+    $('body').append(button);
+    console.log("Button added to body with fixed positioning");
+    
+    // Auto-remove after 30 seconds
+    setTimeout(() => button.remove(), 30000);
+  };
+
+  // Enhanced Config dialog with JSON import
   game.sanctumMerchant.openConfigDialog = () => {
     // Build source dropdown with both compendiums and JSON imports
     const compendiums = game.packs.filter(p => p.metadata.type === "Item");
@@ -379,90 +1180,11 @@ Hooks.once("ready", () => {
       buttons: {
         confirm: {
           label: "Stock Merchant",
-          callback: async (html) => {
-            try {
-              const sourceValue = html.find('[name="source"]').val();
-              // Save the selected source for next time
-              await game.settings.set("sanctum-merchant", "itemSource", sourceValue);
-
-              let sourceType, sourceId;
-
-              if (sourceValue && sourceValue.includes(':')) {
-                [sourceType, sourceId] = sourceValue.split(':');
-              } else {
-                sourceType = 'compendium';
-                sourceId = sourceValue || game.settings.get("sanctum-merchant", "compendium");
-              }
-              
-              const formula = html.find('[name="formula"]').val();
-              // Get selected item types from the tags
-              const types = Array.from(html.find(".item-types .tag")).map(el => el.dataset.tag);
-              const presetName = html.find('[name="rarity-preset"]').val();
-              const merchantMessage = html.find('[name="merchantMessage"]').val();
-              const strictRarity = html.find('[name="strictRarity"]').is(":checked");
-
-              let tags;
-              if (presetName && rarityPresets[presetName]) {
-                tags = rarityPresets[presetName];
-              } else {
-                tags = Array.from(html.find(".rarity-tags .tag")).map(el => el.dataset.tag.toLowerCase());
-              }
-
-              // Validation
-              if (types.length === 0) {
-                ui.notifications.warn("Please select at least one item type.");
-                return false;
-              }
-
-              // Save settings for compendium sources
-              if (sourceType === 'compendium') {
-                await game.settings.set("sanctum-merchant", "compendium", sourceId);
-                await game.settings.set("sanctum-merchant", "formula", formula);
-                await game.settings.set("sanctum-merchant", "types", types.join(","));
-                await game.settings.set("sanctum-merchant", "strictRarity", strictRarity);
-                await game.settings.set("sanctum-merchant", "merchantMessage", merchantMessage);
-                await game.settings.set("sanctum-merchant", "tags", tags.join(","));
-              }
-
-              await game.sanctumMerchant.populateMerchantWithJSON({
-                source: sourceId,
-                sourceType: sourceType,
-                rollFormula: formula,
-                allowedTypes: types, // Now using the tag-selected types
-                rareTags: tags,
-                strictRarity,
-                merchantMessage
-              });
-            } catch (err) {
-              console.error("Merchant stocking failed:", err);
-              ui.notifications.error("Something went wrong stocking the merchant.");
-            }
-
-            game.sanctumMerchant.openConfigDialog();
-            return false;
-          }
+          callback: stockMerchantCallback
         },
         clear: {
           label: "Clear Inventory",
-          callback: async () => {
-            try {
-              for (const token of canvas.tokens.controlled) {
-                const actor = token.actor;
-                if (!actor) continue;
-                const itemIds = actor.items.map(i => i.id);
-                if (itemIds.length > 0) {
-                  await actor.deleteEmbeddedDocuments("Item", itemIds);
-                  ui.notifications.info(`${actor.name}'s inventory cleared.`);
-                } else {
-                  ui.notifications.warn(`${actor.name} has no items to remove.`);
-                }
-              }
-            } catch (err) {
-              console.error("Inventory clear failed:", err);
-              ui.notifications.error("Something went wrong clearing the merchant.");
-            }
-            game.sanctumMerchant.openConfigDialog();
-          }
+          callback: clearInventoryCallback
         },
         reset: {
           label: "Reset to Default",
@@ -533,12 +1255,10 @@ Hooks.once("ready", () => {
         html.find('[name="source"]').on('change', async (e) => {
           const val = e.currentTarget.value;
           await game.settings.set("sanctum-merchant", "itemSource", val);
-          // Keep "compendium" in sync if the user picked a compendium
           if (val?.startsWith("compendium:")) {
             await game.settings.set("sanctum-merchant", "compendium", val.split(':')[1]);
           }
           
-          // Clear existing types and reload
           html.find(".item-types").empty();
           await populateItemTypes(val);
         });
@@ -590,7 +1310,7 @@ Hooks.once("ready", () => {
               typeList.append(typeElem);
             }
           });
-        }, 500); // Small delay to let types populate first
+        }, 500);
 
         html.find('[name="formula"]').val(game.settings.get("sanctum-merchant", "formula"));
         html.find('[name="strictRarity"]').prop("checked", game.settings.get("sanctum-merchant", "strictRarity"));
@@ -608,7 +1328,7 @@ Hooks.once("ready", () => {
             const result = await JSONImportManager.importJSON(jsonText);
             ui.notifications.success(`Imported "${result.name}" with ${result.itemCount} items.`);
             html.find('[name="json-import"]').val('');
-            game.sanctumMerchant.openConfigDialog(); // Refresh to show new import
+            game.sanctumMerchant.openConfigDialog();
           } catch (error) {
             ui.notifications.error(`Import failed: ${error.message}`);
           }
@@ -692,9 +1412,6 @@ Hooks.once("ready", () => {
     }).render(true);
   };
 
-  // The rest of the code continues with populateMerchantWithJSON, auditTags, etc...
-  // (keeping the existing implementation)
-
   game.sanctumMerchant.populateMerchantWithJSON = async function(options = {}) {
     const {
       source,
@@ -735,7 +1452,6 @@ Hooks.once("ready", () => {
       sourceName = pack.title;
     }
 
-    // FIXED: Case-insensitive type filtering with debugging
     console.log("🔍 Filtering Debug Info:");
     console.log("- Allowed Types:", allowedTypes);
     console.log("- Total items before filtering:", items.length);
@@ -747,7 +1463,6 @@ Hooks.once("ready", () => {
         allowedType.toLowerCase() === itemType
       );
       
-      // Debug first few items
       if (items.indexOf(item) < 5) {
         console.log(`- Item "${item.name}" (type: "${item.type}") matches: ${matches}`);
       }
@@ -774,26 +1489,21 @@ Hooks.once("ready", () => {
       if (sourceType === 'json') {
         itemRarity = normalizeRarity(item.system?.rarity);
       } else {
-        // FIXED: Only use systemRarity, don't use ddbType (that's weapon type, not rarity)
         let systemRarity = item.system?.rarity;
         
-        // Handle D&D Beyond format conversions
         if (systemRarity === 'veryRare') systemRarity = 'very rare';
         if (systemRarity === 'legendary') systemRarity = 'legendary';
         if (systemRarity === 'rare') systemRarity = 'rare';
         if (systemRarity === 'uncommon') systemRarity = 'uncommon';
         if (systemRarity === 'common') systemRarity = 'common';
-        if (!systemRarity || systemRarity.trim() === '') systemRarity = 'common'; // Default empty to common
+        if (!systemRarity || systemRarity.trim() === '') systemRarity = 'common';
         
         itemRarity = normalizeRarity(systemRarity);
       }
       
-      // Debug first few items to see their actual structure
       if (filteredItems.indexOf(item) < 3) {
         console.log(`🔍 Item structure for "${item.name}":`);
         console.log("- item.system:", item.system);
-        console.log("- item.flags?.ddbimporter?.dndbeyond:", item.flags?.ddbimporter?.dndbeyond);
-        console.log("- Raw ddbType:", item.flags?.ddbimporter?.dndbeyond?.type);
         console.log("- Raw systemRarity:", item.system?.rarity);
         console.log(`- Final detected rarity: "${itemRarity}"`);
         console.log(`- Matches our tags: ${rareTagsNormalized.includes(itemRarity)}`);
@@ -832,19 +1542,25 @@ Hooks.once("ready", () => {
       docs = loadedDocs.map(d => d.toObject());
     }
 
-    for (const token of canvas.tokens.controlled) {
+    // Try to get merchant from Item Piles integration
+    let merchant = SanctumMerchantItemPilesIntegration.getCurrentMerchant();
+    let stockedCount = 0;
+
+    // Fallback to controlled tokens if no Item Piles merchant
+    const tokensToStock = merchant ? [{ actor: merchant, name: merchant.name }] : canvas.tokens.controlled;
+
+    for (const token of tokensToStock) {
       const actor = token.actor;
       if (!actor) continue;
 
-      const actorItems = new Set(actor.items.map(i => i.name));
-      const newItems = docs.filter(d => !actorItems.has(d.name));
-
-      if (newItems.length > 0) {
-        await actor.createEmbeddedDocuments("Item", newItems);
-
+      const success = await SanctumMerchantItemPilesIntegration.addItemsToMerchant(actor, docs);
+      
+      if (success) {
+        stockedCount++;
+        
         const playerRecipients = game.users.filter(u => u.active && !u.isGM).map(u => u.id);
-        const itemNames = newItems.map(i => i.name).join(", ");
-        const merchantName = token.name || "The Merchant";
+        const itemNames = docs.map(i => i.name).join(", ");
+        const merchantName = token.name || actor.name || "The Merchant";
 
         ChatMessage.create({
           speaker: { alias: merchantName },
@@ -852,14 +1568,16 @@ Hooks.once("ready", () => {
           whisper: playerRecipients
         });
         
-        ui.notifications.info(`Stocked ${newItems.length} items from "${sourceName}" to ${merchantName}`);
+        ui.notifications.info(`Stocked ${docs.length} items from "${sourceName}" to ${merchantName}`);
       }
+    }
+    
+    if (stockedCount === 0) {
+      ui.notifications.warn("No merchants were stocked. Make sure you have a merchant selected or controlled.");
     }
   };
 
-  // Keep existing auditTags implementation
   game.sanctumMerchant.auditTags = async function () {
-    // Read the currently selected source
     const itemSource = game.settings.get("sanctum-merchant", "itemSource")
       || `compendium:${game.settings.get("sanctum-merchant", "compendium")}`;
 
@@ -869,7 +1587,6 @@ Hooks.once("ready", () => {
       sourceId = game.settings.get("sanctum-merchant", "compendium");
     }
 
-    // Load items depending on sourceType
     let items = [];
     let sourceTitle = "";
 
@@ -886,14 +1603,12 @@ Hooks.once("ready", () => {
       sourceTitle = pack.title;
     }
 
-    // Build groups
     const tagGroups = {};
     for (const tag of availableRarityTags) tagGroups[tag] = [];
 
     for (const item of items) {
       const nameLC = (item.name || "").toLowerCase();
 
-      // structured rarity candidates
       const ddbType = item.flags?.ddbimporter?.dndbeyond?.type?.toLowerCase();
       const systemRarity = item.system?.rarity?.toLowerCase();
 
@@ -901,7 +1616,6 @@ Hooks.once("ready", () => {
       let detectedTag = null;
       let highestWeight = 0;
 
-      // Prefer structured fields
       for (const field of candidates) {
         if (field && availableRarityTags.includes(field) && (rarityWeights[field] || 0) > highestWeight) {
           detectedTag = field;
@@ -909,13 +1623,12 @@ Hooks.once("ready", () => {
         }
       }
 
-      // Fallback to text
       if (!detectedTag) {
         const fullText = `${item.name} ${JSON.stringify(item.system||{})} ${JSON.stringify(item.flags||{})}`
           .toLowerCase().replace(/[\s_-]+/g, "");
         for (const tag of availableRarityTags) {
           const normalized = tag.toLowerCase().replace(/[\s_-]+/g, "");
-          const pattern = new RegExp(`\\b${normalized}\\b`, "i");
+          const pattern = new RegExp("\\b" + normalized + "\\b", "i");
           if (pattern.test(fullText) && (rarityWeights[tag] || 0) > highestWeight) {
             detectedTag = tag;
             highestWeight = rarityWeights[tag];
@@ -923,7 +1636,6 @@ Hooks.once("ready", () => {
         }
       }
 
-      // Final fallback to "common" keywords
       if (!detectedTag && fallbackCommon.some(f => nameLC.includes(f))) {
         detectedTag = "common";
       }
@@ -933,7 +1645,6 @@ Hooks.once("ready", () => {
       }
     }
 
-    // Render dialog (same as before)
     let output = `
       <h2>🧮 Rarity Tag Audit — ${sourceTitle}</h2>
       <div style="margin-bottom:10px;">
@@ -984,7 +1695,6 @@ Hooks.once("ready", () => {
       content: output,
       buttons: { close: { label: "Close", callback: () => {} } },
       render: html => {
-        // Keep existing audit dialog handlers
         html.find(".sanctum-tag-header").on("click", function () {
           const itemsList = $(this).next(".sanctum-tag-items");
           const isVisible = itemsList.is(":visible");
@@ -1033,16 +1743,20 @@ Hooks.once("ready", () => {
             if (!itemData) return;
           }
 
-          for (const token of canvas.tokens.controlled) {
-            const actor = token.actor;
-            if (!actor) continue;
-
-            const actorItems = new Set(actor.items.map(i => i.name));
-            if (!actorItems.has(itemData.name)) {
-              await actor.createEmbeddedDocuments("Item", [itemData]);
-              ui.notifications.info(`${itemData.name} stocked to ${actor.name}`);
-            } else {
-              ui.notifications.warn(`${actor.name} already has ${itemData.name}`);
+          const merchant = SanctumMerchantItemPilesIntegration.getCurrentMerchant();
+          if (merchant) {
+            const success = await SanctumMerchantItemPilesIntegration.addItemsToMerchant(merchant, [itemData]);
+            if (success) {
+              ui.notifications.info(`${itemData.name} stocked to ${merchant.name}`);
+            }
+          } else {
+            for (const token of canvas.tokens.controlled) {
+              const actor = token.actor;
+              if (!actor) continue;
+              const success = await SanctumMerchantItemPilesIntegration.addItemsToMerchant(actor, [itemData]);
+              if (success) {
+                ui.notifications.info(`${itemData.name} stocked to ${actor.name}`);
+              }
             }
           }
         });
@@ -1076,11 +1790,12 @@ Hooks.once("ready", () => {
 
           const group = $(this).closest(".sanctum-tag-group");
           const links = group.find(".sanctum-item-link");
+          const merchant = SanctumMerchantItemPilesIntegration.getCurrentMerchant();
+          const tokensToStock = merchant ? [{ actor: merchant }] : canvas.tokens.controlled;
 
-          for (const token of canvas.tokens.controlled) {
+          for (const token of tokensToStock) {
             const actor = token.actor;
             if (!actor) continue;
-            const actorItems = new Set(actor.items.map(i => i.name));
 
             for (const el of links) {
               const st = el.dataset.sourceType;
@@ -1101,11 +1816,9 @@ Hooks.once("ready", () => {
                 if (!itemData) continue;
               }
 
-              if (!actorItems.has(itemData.name)) {
-                await actor.createEmbeddedDocuments("Item", [itemData]);
+              const success = await SanctumMerchantItemPilesIntegration.addItemsToMerchant(actor, [itemData]);
+              if (success) {
                 ui.notifications.info(`${itemData.name} stocked to ${actor.name}`);
-              } else {
-                ui.notifications.warn(`${actor.name} already has ${itemData.name}`);
               }
             }
           }
@@ -1113,32 +1826,4 @@ Hooks.once("ready", () => {
       }
     }, { width: 700, height: 600, resizable: true }).render(true);
   };
-
-  // --- Append GM-only button to Actors tab ---
-  const injectMerchantButton = () => {
-    if (!game.user.isGM) return;
-
-    const actorsTab = document.querySelector("#sidebar .tab[data-tab='actors']");
-    if (!actorsTab) {
-      setTimeout(injectMerchantButton, 100);
-      return;
-    }
-
-    const headerActions = actorsTab.querySelector(".header-actions");
-    if (!headerActions || actorsTab.querySelector("#sanctumMerchantButton")) return;
-
-    const button = document.createElement("button");
-    button.id = "sanctumMerchantButton";
-    button.style.flexBasis = "auto";
-    button.innerHTML = `<i class="fas fa-coins"></i> Stock Merchant`;
-
-    button.addEventListener("click", () => {
-      game.sanctumMerchant.openConfigDialog();
-    });
-
-    headerActions.appendChild(button);
-    console.log("🛒 Sanctum Merchant button appended for GM!");
-  };
-
-  injectMerchantButton();
 });
