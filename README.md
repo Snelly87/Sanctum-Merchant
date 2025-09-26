@@ -6,17 +6,21 @@
 
 A sophisticated merchant stocking system with seamless Item Piles integration for Foundry VTT. Automate merchant inventory management with intelligent item selection, rarity-based filtering, and flexible sourcing options.
 
-![Main Interface](<img width="1072" height="795" alt="image" src="https://github.com/user-attachments/assets/f8a9e5bb-6bcc-49c2-8b4a-7f022572eef5" />)
+<img width="1072" height="795" alt="image" src="https://github.com/user-attachments/assets/bf8e3f14-d507-4f0d-ba27-2564ba34123d" />
 *Screenshot: Sanctum Merchant configuration dialog integrated into Item Piles merchant window*
 
 ## Features
+### Stock Merchant button on the actors tab
+- **Stock NPC and Player Characters**: "Stock Merchant" button appears directly in Actors tab in foundry righthand menu
+  <img width="299" height="61" alt="image" src="https://github.com/user-attachments/assets/26b1fafa-386c-4870-8d8d-151bf3b9c31c" />
+
 
 ### Item Piles Integration
 - **Seamless Integration**: "Stock Merchant" button appears directly in Item Piles merchant windows
 - **Automatic Detection**: Recognizes Item Piles merchants and controlled tokens
 - **Native Compatibility**: Works with all Item Piles merchant configurations
 
-![Item Piles Integration](screenshots/item-piles-integration.png)
+<img width="1888" height="795" alt="image" src="https://github.com/user-attachments/assets/ebbb5e60-bc99-45a9-83a8-5b86cc3a9cec" />
 *Screenshot: Stock Merchant button in Item Piles interface*
 
 ### Flexible Item Sourcing
@@ -25,7 +29,7 @@ A sophisticated merchant stocking system with seamless Item Piles integration fo
 - **Dynamic Type Detection**: Automatically discovers available item types from sources
 - **Batch Management**: Handle multiple item sources simultaneously
 
-![JSON Import](screenshots/json-import.png)
+<img width="1073" height="404" alt="image" src="https://github.com/user-attachments/assets/215fde93-a9d9-4fe5-835c-226105b4546c" />
 *Screenshot: JSON import interface with sample data*
 
 ### Advanced Filtering System
@@ -34,7 +38,10 @@ A sophisticated merchant stocking system with seamless Item Piles integration fo
 - **Strict vs. Loose Modes**: Choose between exclusive matching or weighted preference
 - **Roll-Based Quantities**: Use dice formulas to determine stock amounts
 
-![Filtering Options](screenshots/filtering-options.png)
+<img width="1031" height="252" alt="image" src="https://github.com/user-attachments/assets/78348617-2d09-4673-9cb2-e0694186b468" />
+<img width="1055" height="185" alt="image" src="https://github.com/user-attachments/assets/73a6f5d5-5113-4369-9987-14801ca5d910" />
+<img width="1040" height="198" alt="image" src="https://github.com/user-attachments/assets/240dbd59-fccf-4554-950c-2e4ccc561ee0" />
+<img width="1041" height="267" alt="image" src="https://github.com/user-attachments/assets/14018d56-6397-4fb7-a955-7dc8ae092b24" />
 *Screenshot: Advanced filtering and rarity selection interface*
 
 ### Rarity Presets
@@ -50,7 +57,9 @@ A sophisticated merchant stocking system with seamless Item Piles integration fo
 - **Bulk Operations**: Stock entire rarity categories at once
 - **Search and Filter**: Find items within large collections
 
-![Audit Interface](screenshots/audit-interface.png)
+<img width="695" height="595" alt="image" src="https://github.com/user-attachments/assets/46a9255c-1cf0-4cdf-95af-ee7862cd4537" />
+<img width="701" height="453" alt="image" src="https://github.com/user-attachments/assets/3601b61f-b2fe-48aa-9710-1aaeb0fb9983" />
+<img width="699" height="598" alt="image" src="https://github.com/user-attachments/assets/04384f03-7b75-4688-aab5-bc556a008e3f" />
 *Screenshot: Tag audit system showing items organized by rarity*
 
 ## Installation
@@ -77,11 +86,6 @@ https://github.com/[USERNAME]/sanctum-merchant/releases/latest/download/module.j
 3. **Configure Options**: Select item source, types, rarities, and quantity formula
 4. **Stock Items**: Items are automatically added to merchant inventory
 5. **Review Results**: Check chat messages and merchant inventory
-
-### Configuration Options
-
-![Configuration Dialog](screenshots/configuration-dialog.png)
-*Screenshot: Main configuration dialog with all options visible*
 
 #### Item Sources
 - **Compendiums**: Select from available item compendiums
@@ -122,7 +126,7 @@ Custom item collections can be imported using this JSON structure:
 
 ### Settings
 
-![Settings Interface](screenshots/settings-interface.png)
+<img width="777" height="679" alt="image" src="https://github.com/user-attachments/assets/630c9eb4-9398-4682-8b1e-4e9b334ea589" />
 *Screenshot: Module settings configuration*
 
 Access module settings through Foundry's **Configure Settings** > **Module Settings**:
@@ -181,7 +185,7 @@ Hooks.on("sanctumMerchant.postStock", (merchant, items, success) => {
 
 ```bash
 # Clone the repository
-git clone https://github.com/[USERNAME]/sanctum-merchant.git
+git clone https://github.com/Snelly/sanctum-merchant.git
 cd sanctum-merchant
 
 # Install dependencies (if any)
