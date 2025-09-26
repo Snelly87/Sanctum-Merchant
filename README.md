@@ -2,6 +2,8 @@
 
 A Foundry VTT module that dynamically stocks actors with items from compendiums or custom JSON sources. Perfect for campaigns that want immersive, randomized shops without manual inventory management. 
 
+Install URL: https://github.com/Snelly87/Santum-Merchant/releases/download/1.0.0/module.json
+
 ---
 
 ## ✨ Features
