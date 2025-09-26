@@ -203,7 +203,7 @@ static createIntegratedButton(app) {
     
     const button = $(`
       <button type="button" class="sanctum-merchant-itempiles-btn">
-        <i class="fas fa-coins"></i> Stock Merchant
+        <i class="fas fa-coins"></i> Stock
       </button>
     `);
     
@@ -303,7 +303,7 @@ static createIntegratedButton(app) {
                          .attr('aria-label', 'Stock Merchant');
               
               clonedButton.find('i').removeClass('fa-user').addClass('fa-coins');
-              clonedButton.find('span').text('Stock');
+              clonedButton.find('span').text('Stock Merchant');
               
               // Add our click handler
               clonedButton.off('click').on('click', (e) => {
