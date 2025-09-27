@@ -1,6 +1,9 @@
 # Sanctum Merchant
 
-Like my work? Buy me a coffee! https://ko-fi.com/snelly87
+Like my work? Buy me a coffee! 
+<br/>
+[<img alt="alt_text" src="https://github.com/Snelly87/Santum-Merchant/blob/main/docs/images/Screenshot%202025-09-27%20125147.png?raw=true" />](https://ko-fi.com/snelly87)
+
 
 [![Foundry Version](https://img.shields.io/badge/foundry-v11+-blue)](https://foundryvtt.com/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
