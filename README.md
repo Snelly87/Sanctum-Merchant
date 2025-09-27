@@ -6,6 +6,8 @@ Like my work? Buy me a coffee!
 
 
 [![Foundry Version](https://img.shields.io/badge/foundry-v11+-blue)](https://foundryvtt.com/)
+![Static Badge](https://img.shields.io/badge/Foundry%20Verified%20Version-13-13?color=rgb(255%2C0%2C0))
+![Static Badge](https://img.shields.io/badge/Latest_Release-1--0--0-0?color=rgb(0%2C0%2C255))
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 
