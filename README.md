@@ -263,7 +263,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/Snelly87/sanctum-merchant/issues)
+- **Issues**: [GitHub Issues](https://github.com/Snelly87/Santum-Merchant/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/Snelly87/sanctum-merchant/discussions)
 - **Discord**: [Foundry VTT Discord](https://discord.gg/foundryvtt) - #modules-troubleshooting
 
