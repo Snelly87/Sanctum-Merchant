@@ -1,3 +1,6 @@
+
+<img width="1536" height="1024" alt="Cover photo of a fan" src="https://github.com/user-attachments/assets/fc63535d-3be2-4cc9-8f48-22dbbcb85074" />
+
 # Sanctum Merchant
 
 Like my work? Buy me a coffee! 
