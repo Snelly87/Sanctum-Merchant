@@ -70,7 +70,7 @@ A sophisticated merchant stocking system with seamless Item Piles integration fo
 4. Search for Sanctum Merchant and click Install OR
 5. Paste the following URL in the **Manifest URL** field:
 ```
-https://github.com/Snelly87/sanctum-merchant/releases/latest/download/module.json
+[https://github.com/Snelly87/sanctum-merchant/releases/latest/download/module.json](https://github.com/Snelly87/Santum-Merchant/releases/download/1.0.0/module.json)
 ```
 4. Click **Install**
 
