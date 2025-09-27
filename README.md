@@ -1,5 +1,7 @@
 # Sanctum Merchant
 
+Like my work? Buy me a coffee! https://ko-fi.com/snelly87
+
 [![Foundry Version](https://img.shields.io/badge/foundry-v11+-blue)](https://foundryvtt.com/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![GitHub release](https://img.shields.io/github/release/[USERNAME]/sanctum-merchant)](https://github.com/[USERNAME]/sanctum-merchant/releases)
