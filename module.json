@@ -8,7 +8,7 @@
   "download": "https://github.com/Snelly87/Santum-Merchant/releases/download/1.0.0/module.zip",
   "author": "Snelly",
   "authors": [
-    { "name": "Snelly", "url": "", "email": "" }
+    { "name": "Snelly", "url": "https://github.com/Snelly87/Santum-Merchant", "email": "" }
   ],
   "type": "module",
   "esmodules": ["scripts/merchant.js"],
