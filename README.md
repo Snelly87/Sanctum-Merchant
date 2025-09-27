@@ -10,6 +10,10 @@ Like my work? Buy me a coffee!
 
 
 A sophisticated merchant stocking system with seamless Item Piles integration for Foundry VTT. Automate merchant inventory management with intelligent item selection, rarity-based filtering, and flexible sourcing options.
+<br/>
+<br/>
+**Sanctum Merchant** streamlines merchant inventory management, transforming a tedious manual process into an efficient, automated system that enhances your Foundry VTT experience.
+
 
 <img width="1072" height="795" alt="image" src="https://github.com/user-attachments/assets/bf8e3f14-d507-4f0d-ba27-2564ba34123d" />
 *Screenshot: Sanctum Merchant configuration dialog integrated into Item Piles merchant window*
@@ -259,5 +263,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Discord**: [Foundry VTT Discord](https://discord.gg/foundryvtt) - #modules-troubleshooting
 
 ---
-
-**Sanctum Merchant** streamlines merchant inventory management, transforming a tedious manual process into an efficient, automated system that enhances your Foundry VTT experience.
