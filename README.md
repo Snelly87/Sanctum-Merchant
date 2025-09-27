@@ -2,7 +2,7 @@
 
 Like my work? Buy me a coffee! 
 <br/>
-[<img alt="alt_text" src="https://github.com/Snelly87/Santum-Merchant/blob/main/docs/images/Screenshot%202025-09-27%20125147.png?raw=true" />](https://ko-fi.com/snelly87)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W31LXJ6F)
 
 
 [![Foundry Version](https://img.shields.io/badge/foundry-v11+-blue)](https://foundryvtt.com/)
