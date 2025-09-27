@@ -67,9 +67,10 @@ A sophisticated merchant stocking system with seamless Item Piles integration fo
 ### Method 1: Manifest URL
 1. Open Foundry VTT and navigate to the **Add-on Modules** tab
 2. Click **Install Module**
-3. Paste the following URL in the **Manifest URL** field:
+4. Search for Sanctum Merchant and click Install OR
+5. Paste the following URL in the **Manifest URL** field:
 ```
-https://github.com/[USERNAME]/sanctum-merchant/releases/latest/download/module.json
+https://github.com/Snelly87/sanctum-merchant/releases/latest/download/module.json
 ```
 4. Click **Install**
 
@@ -81,8 +82,8 @@ https://github.com/[USERNAME]/sanctum-merchant/releases/latest/download/module.j
 ## Usage
 
 ### Basic Workflow
-1. **Open Item Piles Merchant**: Access any configured Item Piles merchant
-2. **Click "Stock Merchant"**: Button appears in the merchant window header
+1. **Open Stock Merchant Window**: Access any configured Item Piles merchant or open by clicking Stock Merchant button on the Actors tab on the foundry interface
+2. **Click "Stock Merchant"**: Button appears in the merchant window header and the Sanctum Merchant Window
 3. **Configure Options**: Select item source, types, rarities, and quantity formula
 4. **Stock Items**: Items are automatically added to merchant inventory
 5. **Review Results**: Check chat messages and merchant inventory
