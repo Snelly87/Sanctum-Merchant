@@ -7,7 +7,7 @@ Like my work? Buy me a coffee!
 
 [![Foundry Version](https://img.shields.io/badge/foundry-v11+-blue)](https://foundryvtt.com/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![GitHub release](https://img.shields.io/github/release/[USERNAME]/sanctum-merchant)](https://github.com/[USERNAME]/sanctum-merchant/releases)
+
 
 A sophisticated merchant stocking system with seamless Item Piles integration for Foundry VTT. Automate merchant inventory management with intelligent item selection, rarity-based filtering, and flexible sourcing options.
 
