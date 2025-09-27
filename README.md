@@ -241,7 +241,7 @@ The module includes extensive console logging for troubleshooting:
 - **Recommended**: Latest stable release
 
 ### Game Systems
-System-agnostic design works with any game system supported by Item Piles, including:
+System-agnostic design works with any game system including:
 - D&D 5e
 - Pathfinder 1e/2e  
 - SWADE
