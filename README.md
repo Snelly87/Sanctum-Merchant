@@ -25,7 +25,7 @@ A sophisticated merchant stocking system with seamless Item Piles integration fo
 
 ## Features
 ### Stock Merchant button on the actors tab
-- **Stock NPC and Player Characters**: "Stock Merchant" button appears directly in Actors tab in foundry righthand menu
+- **Stock NPC and Player Characters**: "Stock Merchant" button appears directly in Actors tab in foundry right hand menu
   <img width="299" height="61" alt="image" src="https://github.com/user-attachments/assets/26b1fafa-386c-4870-8d8d-151bf3b9c31c" />
 
 
