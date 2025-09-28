@@ -89,7 +89,7 @@ https://github.com/Snelly87/sanctum-merchant/releases/latest/download/module.jso
 4. Click **Install**
 
 ### Dependencies
-- **Required**: [Item Piles](https://foundryvtt.com/packages/item-piles) module
+- **Optional**: [Item Piles](https://foundryvtt.com/packages/item-piles) module
 - **Foundry Version**: v11.315 or higher
 - **Game Systems**: System-agnostic (works with any system supported by Item Piles)
 
