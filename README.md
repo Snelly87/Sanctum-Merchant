@@ -244,8 +244,6 @@ The module includes extensive console logging for troubleshooting:
 System-agnostic design works with any game system including:
 - D&D 5e
 - Pathfinder 1e/2e  
-- SWADE
-- Generic systems
 
 ### Known Issues
 - JSON collections are stored temporarily and cleaned up after 24 hours
