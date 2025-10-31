@@ -194,6 +194,11 @@ Hooks.on("sanctumMerchant.postStock", (merchant, items, success) => {
 });
 ```
 
+```Javascript for Dev Console - outputs item JSON to window
+const data = await game.sanctumMerchant.exportItemsByRarity({samplesPerRarity: 2});
+console.log(JSON.stringify(data, null, 2));
+```
+
 ## Development
 
 ### Building from Source
