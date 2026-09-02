@@ -8,7 +8,7 @@ Like my work? Buy me a coffee!
 
 [![Foundry Version](https://img.shields.io/badge/foundry-v13+-blue)](https://foundryvtt.com/)
 ![Static Badge](https://img.shields.io/badge/Foundry%20Verified%20Version-14-14?color=rgb(255%2C0%2C0))
-![Static Badge](https://img.shields.io/badge/Latest_Release-1.1.0-0?color=rgb(0%2C0%2C255))
+![Static Badge](https://img.shields.io/badge/Latest_Release-1.1.1-0?color=rgb(0%2C0%2C255))
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 A merchant stocking system with Item Piles integration for Foundry VTT. Automate shop inventories with rarity filtering, roll-based quantities, and items from compendiums or pasted JSON.
