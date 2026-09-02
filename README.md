@@ -13,7 +13,7 @@ Like my work? Buy me a coffee!
 
 A merchant stocking system with Item Piles integration for Foundry VTT. Automate shop inventories with rarity filtering, roll-based quantities, and items from compendiums or pasted JSON.
 
-**Current release: 1.1.0** — verified on Foundry Virtual Tabletop **Version 14 Stable (Build 367)**. See the [changelog](CHANGELOG.md).
+**Current release: 1.1.1** — verified on Foundry Virtual Tabletop **Version 14 Stable (Build 367)**. See the [changelog](CHANGELOG.md).
 
 <img width="1072" height="795" alt="image" src="https://github.com/user-attachments/assets/bf8e3f14-d507-4f0d-ba27-2564ba34123d" />
 *Screenshot: Sanctum Merchant configuration dialog with an Item Piles merchant window*
