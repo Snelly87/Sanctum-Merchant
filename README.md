@@ -8,12 +8,12 @@ Like my work? Buy me a coffee!
 
 [![Foundry Version](https://img.shields.io/badge/foundry-v13+-blue)](https://foundryvtt.com/)
 ![Static Badge](https://img.shields.io/badge/Foundry%20Verified%20Version-14-14?color=rgb(255%2C0%2C0))
-![Static Badge](https://img.shields.io/badge/Latest_Release-1.1.0-0?color=rgb(0%2C0%2C255))
+![Static Badge](https://img.shields.io/badge/Latest_Release-1.1.1-0?color=rgb(0%2C0%2C255))
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 A merchant stocking system with Item Piles integration for Foundry VTT. Automate shop inventories with rarity filtering, roll-based quantities, and items from compendiums or pasted JSON.
 
-**Current release: 1.1.0** — verified on Foundry Virtual Tabletop **Version 14 Stable (Build 367)**. See the [changelog](CHANGELOG.md).
+**Current release: 1.1.1** — verified on Foundry Virtual Tabletop **Version 14 Stable (Build 367)**. See the [changelog](CHANGELOG.md).
 
 <img width="1072" height="795" alt="image" src="https://github.com/user-attachments/assets/bf8e3f14-d507-4f0d-ba27-2564ba34123d" />
 *Screenshot: Sanctum Merchant configuration dialog with an Item Piles merchant window*
@@ -91,7 +91,7 @@ https://github.com/Snelly87/Sanctum-Merchant/releases/latest/download/module.jso
 
 4. Click **Install**, then enable the module in your world.
 
-If you already had 1.0.0 installed and it disappeared after moving to Foundry 14, install 1.1.0 from that URL and enable **Sanctum Merchant** again in Manage Modules.
+If you already had 1.0.0 installed and it disappeared after moving to Foundry 14, install 1.1.1 from that URL and enable **Sanctum Merchant** again in Manage Modules.
 
 ### Manual install
 

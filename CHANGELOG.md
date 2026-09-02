@@ -2,7 +2,7 @@
 
 All notable changes to Sanctum Merchant are documented in this file.
 
-## [Unreleased]
+## [1.1.1] - 2026-09-02
 
 ### Added
 
