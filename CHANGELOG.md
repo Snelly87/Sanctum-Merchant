@@ -2,6 +2,12 @@
 
 All notable changes to Sanctum Merchant are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Option to skip the restock whisper: **Send Restock Message** in module settings and the Stock Merchant dialog (GitHub issue #14).
+
 ## [1.1.0] - 2026-09-02
 
 ### Foundry VTT

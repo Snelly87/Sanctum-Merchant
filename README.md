@@ -108,7 +108,7 @@ Clone or copy the `sanctum-merchant` folder into Foundry’s `Data/modules` dire
 1. Select an Item Piles merchant token, or open its merchant window.
 2. Click **Stock Merchant** on the Actors tab or in the Item Piles window header.
 3. Choose a source, item types, rarity tags or a preset, and a roll formula.
-4. Click **Stock Merchant**. Items are added to the merchant and a whisper is sent to active players.
+4. Click **Stock Merchant**. Items are added to the merchant. If **Send Restock Message** is on, a whisper is sent to active players.
 5. Use **Clear Inventory** to empty the current merchant, or **Audit Tags** to stock specific items.
 
 ### Filtering
@@ -155,7 +155,8 @@ JSON collections live in memory only and are removed after 24 hours.
 - **Default Roll Formula**
 - **Allowed Item Types**
 - **Strict Rarity Filtering**
-- **Merchant Message** (whispered to players on restock)
+- **Send Restock Message**: whisper to players when a merchant is stocked (uncheck for silent restocks)
+- **Merchant Message** (used only if Send Restock Message is enabled)
 
 ## API
 
@@ -169,7 +170,8 @@ await game.sanctumMerchant.populateMerchantWithJSON({
   allowedTypes: ["weapon", "equipment"],
   rareTags: ["common", "uncommon"],
   strictRarity: true,
-  merchantMessage: "New stock has arrived!"
+  merchantMessage: "New stock has arrived!",
+  sendRestockMessage: false
 });
 
 const result = await game.sanctumMerchant.JSONImportManager.importJSON(jsonData);

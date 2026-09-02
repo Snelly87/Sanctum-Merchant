@@ -382,9 +382,18 @@ Hooks.once("init", () => {
     default: true
   });
 
+  game.settings.register(MODULE_ID, "sendRestockMessage", {
+    name: "Send Restock Message",
+    hint: "Whisper a chat message to players when a merchant is stocked. Uncheck to restock silently.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
   game.settings.register(MODULE_ID, "merchantMessage", {
     name: "Default Merchant Message",
-    hint: "Message whispered to players when stocking the merchant.",
+    hint: "Message whispered to players when stocking the merchant (if Send Restock Message is enabled).",
     scope: "world",
     config: true,
     type: String,
@@ -483,6 +492,7 @@ async function stockMerchantCallback(root) {
     const types = selectedTags(root, ".item-types .tag");
     const presetName = fieldValue(root, "rarity-preset");
     const merchantMessage = fieldValue(root, "merchantMessage");
+    const sendRestockMessage = fieldChecked(root, "sendRestockMessage");
     const strictRarity = fieldChecked(root, "strictRarity");
 
     let tags;
@@ -503,6 +513,8 @@ async function stockMerchantCallback(root) {
       await game.settings.set(MODULE_ID, "tags", tags.join(","));
     }
 
+    await game.settings.set(MODULE_ID, "sendRestockMessage", sendRestockMessage);
+
     await game.sanctumMerchant.populateMerchantWithJSON({
       source: sourceId,
       sourceType,
@@ -510,7 +522,8 @@ async function stockMerchantCallback(root) {
       allowedTypes: types,
       rareTags: tags,
       strictRarity,
-      merchantMessage
+      merchantMessage,
+      sendRestockMessage
     });
 
     ui.notifications.info("Items stocked successfully!");
@@ -549,6 +562,7 @@ async function resetMerchantSettings() {
     await game.settings.set(MODULE_ID, "formula", "1d6+2");
     await game.settings.set(MODULE_ID, "types", "weapon,consumable,equipment,loot,container,tool");
     await game.settings.set(MODULE_ID, "strictRarity", true);
+    await game.settings.set(MODULE_ID, "sendRestockMessage", true);
     await game.settings.set(MODULE_ID, "merchantMessage", `🧿 Got somethin' that might interest ya'!`);
     await game.settings.set(MODULE_ID, "tags", "");
     ui.notifications.info("Sanctum Merchant settings reset to default.");
@@ -661,6 +675,8 @@ function bindConfigDialog(dialog) {
   if (strictInput) strictInput.checked = game.settings.get(MODULE_ID, "strictRarity");
   const messageInput = root.querySelector('[name="merchantMessage"]');
   if (messageInput) messageInput.value = game.settings.get(MODULE_ID, "merchantMessage");
+  const sendMessageInput = root.querySelector('[name="sendRestockMessage"]');
+  if (sendMessageInput) sendMessageInput.checked = game.settings.get(MODULE_ID, "sendRestockMessage") !== false;
 
   root.querySelector(".import-json")?.addEventListener("click", async () => {
     const jsonText = fieldValue(root, "json-import");
@@ -827,9 +843,16 @@ function configDialogContent() {
         </td>
       </tr>
       <tr>
-        <td style="width:150px;padding:8px 10px;vertical-align:top;"><label>Merchant Message</label></td>
+        <td style="width:150px;padding:8px 10px;vertical-align:top;"><label>Restock Message</label></td>
         <td style="padding:8px 10px;">
-          <input type="text" name="merchantMessage" style="width:100%;height:28px;padding:4px;box-sizing:border-box;" />
+          <label>
+            <input type="checkbox" name="sendRestockMessage" />
+            Whisper restock message to players
+          </label>
+          <p style="font-size:0.8em;margin-top:4px;">
+            Uncheck to stock merchants without posting a chat message.
+          </p>
+          <input type="text" name="merchantMessage" style="width:100%;height:28px;padding:4px;margin-top:6px;box-sizing:border-box;" />
         </td>
       </tr>
     </table>
@@ -1079,7 +1102,8 @@ Hooks.once("ready", () => {
       allowedTypes = ["weapon", "equipment", "consumable", "loot", "container", "tool"],
       rareTags = ["rare", "very rare", "legendary"],
       strictRarity = true,
-      merchantMessage = "🧿 Got somethin' that might interest ya'!"
+      merchantMessage = "🧿 Got somethin' that might interest ya'!",
+      sendRestockMessage = game.settings.get(MODULE_ID, "sendRestockMessage") !== false
     } = options;
 
     let items = [];
@@ -1161,14 +1185,16 @@ Hooks.once("ready", () => {
       const success = await SanctumMerchantItemPilesIntegration.addItemsToMerchant(actor, docs);
       if (!success) continue;
       stockedCount++;
-      const playerRecipients = game.users.filter(u => u.active && !u.isGM).map(u => u.id);
-      const itemNames = docs.map(i => i.name).join(", ");
       const merchantName = token.name || actor.name || "The Merchant";
-      ChatMessage.create({
-        speaker: { alias: merchantName },
-        content: `${merchantMessage}<br><strong>New Items:</strong> ${itemNames}`,
-        whisper: playerRecipients
-      });
+      if (sendRestockMessage) {
+        const playerRecipients = game.users.filter(u => u.active && !u.isGM).map(u => u.id);
+        const itemNames = docs.map(i => i.name).join(", ");
+        ChatMessage.create({
+          speaker: { alias: merchantName },
+          content: `${merchantMessage}<br><strong>New Items:</strong> ${itemNames}`,
+          whisper: playerRecipients
+        });
+      }
       ui.notifications.info(`Stocked ${docs.length} items from "${sourceName}" to ${merchantName}`);
     }
 
