@@ -15,6 +15,11 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 
 **Current release: 1.1.1** — verified on Foundry Virtual Tabletop **Version 14 Stable (Build 367)**. See the [changelog](CHANGELOG.md).
 
+### What's new
+
+- **1.1.1** — optional silent restocks. Uncheck **Send Restock Message** in module settings or the Stock Merchant dialog so players are not whispered when a shop is restocked.
+- **1.1.0** — Foundry **V14** support (Application V2 dialogs, Actors-tab button, Item Piles header button).
+
 <img width="1072" height="795" alt="image" src="https://github.com/user-attachments/assets/bf8e3f14-d507-4f0d-ba27-2564ba34123d" />
 *Screenshot: Sanctum Merchant configuration dialog with an Item Piles merchant window*
 
@@ -51,6 +56,7 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 - **Rarity tags**: common through legendary, plus campaign tags (exotic, cursed, forged, sanctum-blessed).
 - **Strict vs loose**: exact rarity match, or all items with matching rarities weighted higher.
 - **Roll formula**: dice notation such as `1d6+2` for how many items to stock.
+- **Silent restock**: turn off **Send Restock Message** if you do not want a chat whisper when shops refresh.
 
 <img width="1031" height="252" alt="image" src="https://github.com/user-attachments/assets/78348617-2d09-4673-9cb2-e0694186b468" />
 <img width="1055" height="185" alt="image" src="https://github.com/user-attachments/assets/73a6f5d5-5113-4369-9987-14801ca5d910" />
@@ -226,7 +232,10 @@ System-agnostic. Tested with D&D 5e.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md).
+- **[1.1.1](CHANGELOG.md)** — silent restock option
+- **[1.1.0](CHANGELOG.md)** — Foundry V14 compatibility
+
+Full notes: [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
