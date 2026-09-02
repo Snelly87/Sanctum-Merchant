@@ -1,123 +1,126 @@
-
 <img width="1536" height="1024" alt="Cover photo of a fan" src="https://github.com/user-attachments/assets/fc63535d-3be2-4cc9-8f48-22dbbcb85074" />
 
 # Sanctum Merchant
 
-Like my work? Buy me a coffee! 
+Like my work? Buy me a coffee!
 <br/>
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W31LXJ6F)
 
-
-[![Foundry Version](https://img.shields.io/badge/foundry-v11+-blue)](https://foundryvtt.com/)
-![Static Badge](https://img.shields.io/badge/Foundry%20Verified%20Version-13-13?color=rgb(255%2C0%2C0))
-![Static Badge](https://img.shields.io/badge/Latest_Release-1--0--0-0?color=rgb(0%2C0%2C255))
+[![Foundry Version](https://img.shields.io/badge/foundry-v13+-blue)](https://foundryvtt.com/)
+![Static Badge](https://img.shields.io/badge/Foundry%20Verified%20Version-14-14?color=rgb(255%2C0%2C0))
+![Static Badge](https://img.shields.io/badge/Latest_Release-1.1.0-0?color=rgb(0%2C0%2C255))
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+A merchant stocking system with Item Piles integration for Foundry VTT. Automate shop inventories with rarity filtering, roll-based quantities, and items from compendiums or pasted JSON.
 
-A sophisticated merchant stocking system with seamless Item Piles integration for Foundry VTT. Automate merchant inventory management with intelligent item selection, rarity-based filtering, and flexible sourcing options.
-<br/>
-<br/>
-**Sanctum Merchant** streamlines merchant inventory management, transforming a tedious manual process into an efficient, automated system that enhances your Foundry VTT experience.
-
+**Current release: 1.1.0** — verified on Foundry Virtual Tabletop **Version 14 Stable (Build 367)**. See the [changelog](CHANGELOG.md).
 
 <img width="1072" height="795" alt="image" src="https://github.com/user-attachments/assets/bf8e3f14-d507-4f0d-ba27-2564ba34123d" />
-*Screenshot: Sanctum Merchant configuration dialog integrated into Item Piles merchant window*
+*Screenshot: Sanctum Merchant configuration dialog with an Item Piles merchant window*
 
 ## Features
-### Stock Merchant button on the actors tab
-- **Stock NPC and Player Characters**: "Stock Merchant" button appears directly in Actors tab in foundry right hand menu
+
+### Stock Merchant button on the Actors tab
+
+- **Stock NPC and player characters**: the **Stock Merchant** button appears in the Actors directory header on the right-hand sidebar.
+
   <img width="299" height="61" alt="image" src="https://github.com/user-attachments/assets/26b1fafa-386c-4870-8d8d-151bf3b9c31c" />
 
+### Item Piles integration
 
-### Item Piles Integration
-- **Seamless Integration**: "Stock Merchant" button appears directly in Item Piles merchant windows
-- **Automatic Detection**: Recognizes Item Piles merchants and controlled tokens
-- **Native Compatibility**: Works with all Item Piles merchant configurations
+- **Header button**: **Stock Merchant** appears on Item Piles merchant windows next to Open Sheet / Show To Players.
+- **Automatic detection**: uses the Item Piles API to recognize merchant piles and controlled tokens.
+- **Native add/remove**: stocks and clears inventory through `game.itempiles.API.addItems` / `removeItems`.
 
 <img width="1888" height="795" alt="image" src="https://github.com/user-attachments/assets/ebbb5e60-bc99-45a9-83a8-5b86cc3a9cec" />
-*Screenshot: Stock Merchant button in Item Piles interface*
+*Screenshot: Stock Merchant button in the Item Piles merchant header*
 
-### Flexible Item Sourcing
-- **Compendium Support**: Stock from any Foundry item compendium
-- **JSON Import**: Import custom item collections with temporary storage
-- **Dynamic Type Detection**: Automatically discovers available item types from sources
-- **Batch Management**: Handle multiple item sources simultaneously
+### Flexible item sourcing
+
+- **Compendiums**: stock from any Foundry Item pack.
+- **JSON import**: paste a custom collection (kept in memory for 24 hours).
+- **Dynamic types**: item types are read from the selected source.
+- **Last source remembered**: world settings store your last compendium and filters.
 
 <img width="1073" height="404" alt="image" src="https://github.com/user-attachments/assets/215fde93-a9d9-4fe5-835c-226105b4546c" />
-*Screenshot: JSON import interface with sample data*
+*Screenshot: JSON import interface*
 
-### Advanced Filtering System
-- **Item Type Filtering**: Select specific categories (weapons, equipment, consumables, etc.)
-- **Rarity-Based Selection**: Weighted selection based on item rarity tags
-- **Strict vs. Loose Modes**: Choose between exclusive matching or weighted preference
-- **Roll-Based Quantities**: Use dice formulas to determine stock amounts
+### Filtering
+
+- **Item types**: weapons, equipment, consumables, loot, containers, tools, and any types the source provides.
+- **Rarity tags**: common through legendary, plus campaign tags (exotic, cursed, forged, sanctum-blessed).
+- **Strict vs loose**: exact rarity match, or all items with matching rarities weighted higher.
+- **Roll formula**: dice notation such as `1d6+2` for how many items to stock.
 
 <img width="1031" height="252" alt="image" src="https://github.com/user-attachments/assets/78348617-2d09-4673-9cb2-e0694186b468" />
 <img width="1055" height="185" alt="image" src="https://github.com/user-attachments/assets/73a6f5d5-5113-4369-9987-14801ca5d910" />
 <img width="1040" height="198" alt="image" src="https://github.com/user-attachments/assets/240dbd59-fccf-4554-950c-2e4ccc561ee0" />
 <img width="1041" height="267" alt="image" src="https://github.com/user-attachments/assets/14018d56-6397-4fb7-a955-7dc8ae092b24" />
-*Screenshot: Advanced filtering and rarity selection interface*
+*Screenshot: filtering and rarity selection*
 
-### Rarity Presets
-- **Starter Gear**: Common and uncommon items for new parties
-- **Legendary Vault**: High-tier magical items for epic campaigns
-- **Exotic Bazaar**: Rare and unique items with special properties
-- **Cursed Curiosities**: Dangerous magical items with risk/reward mechanics
-- **Chaos Stock**: Random mix across all rarity levels
+### Rarity presets
 
-### Audit and Management Tools
-- **Tag Audit System**: Review and categorize items by detected rarity
-- **Individual Stocking**: Add specific items directly from audit interface
-- **Bulk Operations**: Stock entire rarity categories at once
-- **Search and Filter**: Find items within large collections
+- **Starter Gear**: common and uncommon
+- **Legendary Vault**: legendary, very rare, sanctum-blessed
+- **Exotic Bazaar**: rare, exotic, sanctum-blessed
+- **Cursed Curiosities**: cursed, forged, rare
+- **Chaos Stock**: mixed rarities
+
+### Audit tools
+
+- Group a source’s items by detected rarity
+- Stock one item or an entire rarity group
+- Filter the audit list by name
 
 <img width="695" height="595" alt="image" src="https://github.com/user-attachments/assets/46a9255c-1cf0-4cdf-95af-ee7862cd4537" />
 <img width="701" height="453" alt="image" src="https://github.com/user-attachments/assets/3601b61f-b2fe-48aa-9710-1aaeb0fb9983" />
 <img width="699" height="598" alt="image" src="https://github.com/user-attachments/assets/04384f03-7b75-4688-aab5-bc556a008e3f" />
-*Screenshot: Tag audit system showing items organized by rarity*
+*Screenshot: tag audit organized by rarity*
 
 ## Installation
 
-### Method 1: Manifest URL
-1. Open Foundry VTT and navigate to the **Add-on Modules** tab
-2. Click **Install Module**
-4. Search for Sanctum Merchant and click Install OR
-5. Paste the following URL in the **Manifest URL** field:
-```
-https://github.com/Snelly87/sanctum-merchant/releases/latest/download/module.json
-```
-4. Click **Install**
+### Manifest URL
 
-### Dependencies
-- **Optional**: [Item Piles](https://foundryvtt.com/packages/item-piles) module
-- **Foundry Version**: v11.315 or higher
-- **Game Systems**: System-agnostic (works with any system supported by Item Piles)
+1. In Foundry, open **Add-on Modules**.
+2. Click **Install Module**.
+3. Search for **Sanctum Merchant**, or paste this Manifest URL:
+
+```
+https://github.com/Snelly87/Sanctum-Merchant/releases/latest/download/module.json
+```
+
+4. Click **Install**, then enable the module in your world.
+
+If you already had 1.0.0 installed and it disappeared after moving to Foundry 14, install 1.1.0 from that URL and enable **Sanctum Merchant** again in Manage Modules.
+
+### Manual install
+
+Clone or copy the `sanctum-merchant` folder into Foundry’s `Data/modules` directory, then enable it in the world.
+
+### Requirements
+
+- **Foundry VTT**: 13 or higher (verified on 14.367)
+- **Optional**: [Item Piles](https://foundryvtt.com/packages/item-piles) — needed for merchant windows and the header Stock button
+- **Game systems**: system-agnostic; works with any system Item Piles supports (including D&D 5e)
 
 ## Usage
 
-### Basic Workflow
-1. **Open Stock Merchant Window**: Access any configured Item Piles merchant or open by clicking Stock Merchant button on the Actors tab on the foundry interface
-2. **Click "Stock Merchant"**: Button appears in the merchant window header and the Sanctum Merchant Window
-3. **Configure Options**: Select item source, types, rarities, and quantity formula
-4. **Stock Items**: Items are automatically added to merchant inventory
-5. **Review Results**: Check chat messages and merchant inventory
+1. Select an Item Piles merchant token, or open its merchant window.
+2. Click **Stock Merchant** on the Actors tab or in the Item Piles window header.
+3. Choose a source, item types, rarity tags or a preset, and a roll formula.
+4. Click **Stock Merchant**. Items are added to the merchant and a whisper is sent to active players.
+5. Use **Clear Inventory** to empty the current merchant, or **Audit Tags** to stock specific items.
 
-#### Item Sources
-- **Compendiums**: Select from available item compendiums
-- **JSON Collections**: Import and use custom item sets
+### Filtering
 
-#### Filtering
-- **Item Types**: Choose which item categories to include
-- **Rarity Tags**: Select target rarity levels
-- **Strict Mode**: Enable for exact rarity matching, disable for weighted selection
+- **Item Types**: categories to include
+- **Rarity Tags / Presets**: which rarities to pull
+- **Strict Mode**: on = only those rarities; off = all items, with matching rarities favored
+- **Roll Formula**: how many items to add (for example `1d6+2`)
 
-#### Quantity Control
-- **Roll Formula**: Use dice notation (e.g., "1d6+2") to determine stock amounts
-- **Duplicate Prevention**: Automatically excludes items already in merchant inventory
+Items already on the merchant (same name) are not added again when using the direct fallback path.
 
-### JSON Import Format
-
-Custom item collections can be imported using this JSON structure:
+### JSON import format
 
 ```json
 {
@@ -139,28 +142,26 @@ Custom item collections can be imported using this JSON structure:
 }
 ```
 
+JSON collections live in memory only and are removed after 24 hours.
+
 ### Settings
 
 <img width="777" height="679" alt="image" src="https://github.com/user-attachments/assets/630c9eb4-9398-4682-8b1e-4e9b334ea589" />
-*Screenshot: Module settings configuration*
+*Screenshot: module settings*
 
-Access module settings through Foundry's **Configure Settings** > **Module Settings**:
+**Configure Settings → Module Settings → Sanctum Merchant**
 
-- **Default Compendium**: Primary source for item selection
-- **Default Roll Formula**: Quantity determination formula
-- **Allowed Item Types**: Default item categories to include
-- **Strict Rarity Filtering**: Default filtering behavior
-- **Merchant Message**: Custom text for player notifications
+- **Default Compendium**
+- **Default Roll Formula**
+- **Allowed Item Types**
+- **Strict Rarity Filtering**
+- **Merchant Message** (whispered to players on restock)
 
 ## API
 
-### Public Methods
-
 ```javascript
-// Access the main API
 game.sanctumMerchant
 
-// Stock merchant programmatically
 await game.sanctumMerchant.populateMerchantWithJSON({
   source: "compendium-id-or-json-collection-id",
   sourceType: "compendium", // or "json"
@@ -171,103 +172,72 @@ await game.sanctumMerchant.populateMerchantWithJSON({
   merchantMessage: "New stock has arrived!"
 });
 
-// Import JSON collection
 const result = await game.sanctumMerchant.JSONImportManager.importJSON(jsonData);
 
-// Audit rarity tags
 await game.sanctumMerchant.auditTags();
 ```
 
-### Hooks
-
-The module fires the following hooks for integration:
+Export samples from the current source (downloads a JSON file):
 
 ```javascript
-// Before stocking merchant
-Hooks.on("sanctumMerchant.preStock", (merchant, items) => {
-  // Your code here
-});
-
-// After stocking merchant
-Hooks.on("sanctumMerchant.postStock", (merchant, items, success) => {
-  // Your code here
-});
-```
-For Dev Console - outputs item JSON to window
-```Javascript 
-const data = await game.sanctumMerchant.exportItemsByRarity({samplesPerRarity: 2});
+const data = await game.sanctumMerchant.exportItemsByRarity({ samplesPerRarity: 2 });
 console.log(JSON.stringify(data, null, 2));
+
+game.sanctumMerchant.quickExport();
+game.sanctumMerchant.fullExport();
 ```
 
-## Development
+## Debugging
 
-### Building from Source
+In the browser console (F12):
 
-```bash
-# Clone the repository
-git clone https://github.com/Snelly/sanctum-merchant.git
-cd sanctum-merchant
-
-# Install dependencies (if any)
-npm install
-
-# Build the module (if applicable)
-npm run build
-```
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Debugging
-
-Enable debug mode in browser console:
 ```javascript
-game.sanctumMerchant.debugMode = true;
+game.sanctumMerchant.toggleDebug();
 ```
 
-### Testing
+That turns verbose Sanctum Merchant logging on or off. On load you should see:
 
-The module includes extensive console logging for troubleshooting:
-- Item filtering and selection processes
-- Merchant detection and stocking results
-- JSON import validation
-- Rarity tag processing
+```
+Sanctum Merchant | Script loaded
+Sanctum Merchant | Ready. Toggle debug with game.sanctumMerchant.toggleDebug()
+```
 
 ## Compatibility
 
-### Foundry Versions
-- **Minimum**: v11.315
-- **Tested**: v11.x, v12.x, v13.x
-- **Recommended**: Latest stable release
+### Foundry versions
 
-### Game Systems
-System-agnostic design works with any game system including:
-- D&D 5e
-- Pathfinder 1e/2e  
+| | |
+|---|---|
+| **Minimum** | 13 |
+| **Verified** | 14.367 |
+| **Not supported** | 11 and 12 |
 
-### Known Issues
-- JSON collections are stored temporarily and cleaned up after 24 hours
-- Very large compendiums (1000+ items) may experience slight performance delays during filtering
+### Game systems
+
+System-agnostic. Tested with D&D 5e.
+
+### Known issues
+
+- JSON collections are temporary (24 hours).
+- Very large packs (1000+ items) can take a moment to filter.
+- Unlinked merchant tokens stock the **token actor** (what Item Piles sells). The world actor sheet can look empty even when the merchant window is full.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).
 
 ## Credits
 
 - Built for [Foundry Virtual Tabletop](https://foundryvtt.com/)
 - Integrates with [Item Piles](https://foundryvtt.com/packages/item-piles) by Fantasy Computerworks
-- Icons provided by [Font Awesome](https://fontawesome.com/)
+- Icons from [Font Awesome](https://fontawesome.com/)
 
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/Snelly87/Sanctum-Merchant/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/Snelly87/Sanctum-Merchant/discussions)
-- **Discord**: [Foundry VTT Discord](https://discord.gg/foundryvtt) - #modules-troubleshooting
-
----
+- **Discord**: [Foundry VTT Discord](https://discord.gg/foundryvtt) — #modules-troubleshooting
