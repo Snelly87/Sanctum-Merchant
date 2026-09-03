@@ -8,16 +8,16 @@ Like my work? Buy me a coffee!
 
 [![Foundry Version](https://img.shields.io/badge/foundry-v13+-blue)](https://foundryvtt.com/)
 ![Static Badge](https://img.shields.io/badge/Foundry%20Verified%20Version-14-14?color=rgb(255%2C0%2C0))
-![Static Badge](https://img.shields.io/badge/Latest_Release-1.1.1-0?color=rgb(0%2C0%2C255))
+![Static Badge](https://img.shields.io/badge/Latest_Release-1.2.0-0?color=rgb(0%2C0%2C255))
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 A merchant stocking system with Item Piles integration for Foundry VTT. Automate shop inventories with rarity filtering, roll-based quantities, and items from compendiums or pasted JSON.
 
-**Current release: 1.1.1** — verified on Foundry Virtual Tabletop **Version 14 Stable (Build 367)**. See the [changelog](CHANGELOG.md).
+**Current release: 1.2.0** — verified on Foundry Virtual Tabletop **Version 14 Stable (Build 367)**. See the [changelog](CHANGELOG.md).
 
 ### What's new
 
-- **Unreleased** — per-merchant saved shops, add vs replace restock, roll-then-confirm preview, and restock chat Off / Summary / Full.
+- **1.2.0** — per-merchant saved shops, add vs replace restock, roll-then-confirm preview, and restock chat Off / Summary / Full.
 - **1.1.1** — optional silent restocks.
 - **1.1.0** — Foundry **V14** support (Application V2 dialogs, Actors-tab button, Item Piles header button).
 
@@ -57,7 +57,7 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 - **Rarity tags**: common through legendary, plus campaign tags (exotic, cursed, forged, sanctum-blessed).
 - **Strict vs loose**: exact rarity match, or all items with matching rarities weighted higher.
 - **Roll formula**: dice notation such as `1d6+2` for how many items to stock.
-- **Silent restock**: turn off **Send Restock Message** if you do not want a chat whisper when shops refresh.
+- **Restock chat**: Off (silent), Summary (count and rarities), or Full list of item names.
 
 <img width="1031" height="252" alt="image" src="https://github.com/user-attachments/assets/78348617-2d09-4673-9cb2-e0694186b468" />
 <img width="1055" height="185" alt="image" src="https://github.com/user-attachments/assets/73a6f5d5-5113-4369-9987-14801ca5d910" />
@@ -98,7 +98,7 @@ https://github.com/Snelly87/Sanctum-Merchant/releases/latest/download/module.jso
 
 4. Click **Install**, then enable the module in your world.
 
-If you already had 1.0.0 installed and it disappeared after moving to Foundry 14, install 1.1.1 from that URL and enable **Sanctum Merchant** again in Manage Modules.
+If you already had 1.0.0 installed and it disappeared after moving to Foundry 14, install 1.2.0 from that URL and enable **Sanctum Merchant** again in Manage Modules.
 
 ### Manual install
 
@@ -235,7 +235,7 @@ System-agnostic. Tested with D&D 5e.
 
 ## Changelog
 
-- **[Unreleased](CHANGELOG.md)** — per-merchant shops, preview, add/replace, chat modes
+- **[1.2.0](CHANGELOG.md)** — per-merchant shops, preview, add/replace, chat modes
 - **[1.1.1](CHANGELOG.md)** — silent restock option
 - **[1.1.0](CHANGELOG.md)** — Foundry V14 compatibility
 

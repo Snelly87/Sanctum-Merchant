@@ -3,9 +3,9 @@
   "name": "Sanctum Merchant",
   "title": "Sanctum Merchant",
   "description": "Dynamic merchant inventory system using compendium-driven roll tables.",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "manifest": "https://github.com/Snelly87/Sanctum-Merchant/releases/latest/download/module.json",
-  "download": "https://github.com/Snelly87/Sanctum-Merchant/releases/download/1.1.1/module.zip",
+  "download": "https://github.com/Snelly87/Sanctum-Merchant/releases/download/1.2.0/module.zip",
   "author": "Snelly",
   "authors": [
     { "name": "Snelly", "url": "https://github.com/Snelly87/Sanctum-Merchant", "discord": "sn3lly" }
