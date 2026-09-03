@@ -17,7 +17,8 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 
 ### What's new
 
-- **1.1.1** — optional silent restocks. Uncheck **Send Restock Message** in module settings or the Stock Merchant dialog so players are not whispered when a shop is restocked.
+- **Unreleased** — per-merchant saved shops, add vs replace restock, roll-then-confirm preview, and restock chat Off / Summary / Full.
+- **1.1.1** — optional silent restocks.
 - **1.1.0** — Foundry **V14** support (Application V2 dialogs, Actors-tab button, Item Piles header button).
 
 <img width="1072" height="795" alt="image" src="https://github.com/user-attachments/assets/bf8e3f14-d507-4f0d-ba27-2564ba34123d" />
@@ -113,9 +114,9 @@ Clone or copy the `sanctum-merchant` folder into Foundry’s `Data/modules` dire
 
 1. Select an Item Piles merchant token, or open its merchant window.
 2. Click **Stock Merchant** on the Actors tab or in the Item Piles window header.
-3. Choose a source, item types, rarity tags or a preset, and a roll formula.
-4. Click **Stock Merchant**. Items are added to the merchant. If **Send Restock Message** is on, a whisper is sent to active players.
-5. Use **Clear Inventory** to empty the current merchant, or **Audit Tags** to stock specific items.
+3. Choose a source, item types, rarity tags or a preset, restock mode (add or replace), chat mode, and a roll formula.
+4. Click **Roll Stock**. Uncheck any items you do not want, then **Confirm Stock**.
+5. Filters are saved on that merchant. Use **Clear Inventory** to empty it, or **Audit Tags** to stock specific items.
 
 ### Filtering
 
@@ -161,8 +162,9 @@ JSON collections live in memory only and are removed after 24 hours.
 - **Default Roll Formula**
 - **Allowed Item Types**
 - **Strict Rarity Filtering**
-- **Send Restock Message**: whisper to players when a merchant is stocked (uncheck for silent restocks)
-- **Merchant Message** (used only if Send Restock Message is enabled)
+- **Default Restock Mode**: add to stock, or replace (clear then add)
+- **Restock Chat**: Off, Summary, or Full list of item names
+- **Merchant Message** (used for Summary and Full chat modes)
 
 ## API
 
@@ -177,7 +179,8 @@ await game.sanctumMerchant.populateMerchantWithJSON({
   rareTags: ["common", "uncommon"],
   strictRarity: true,
   merchantMessage: "New stock has arrived!",
-  sendRestockMessage: false
+  restockChatMode: "summary", // "off" | "summary" | "full"
+  restockMode: "replace" // "add" | "replace"
 });
 
 const result = await game.sanctumMerchant.JSONImportManager.importJSON(jsonData);
@@ -232,6 +235,7 @@ System-agnostic. Tested with D&D 5e.
 
 ## Changelog
 
+- **[Unreleased](CHANGELOG.md)** — per-merchant shops, preview, add/replace, chat modes
 - **[1.1.1](CHANGELOG.md)** — silent restock option
 - **[1.1.0](CHANGELOG.md)** — Foundry V14 compatibility
 

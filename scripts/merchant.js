@@ -1,6 +1,10 @@
 console.log("Sanctum Merchant | Script loaded");
 
 const MODULE_ID = "sanctum-merchant";
+const DEFAULT_STOCK_TYPES = ["weapon", "equipment", "consumable", "loot", "container", "tool"];
+const DEFAULT_STOCK_TAGS = ["rare", "very rare", "legendary"];
+const DEFAULT_MERCHANT_MESSAGE = "🧿 Got somethin' that might interest ya'!";
+const DEFAULT_FORMULA = "1d6+2";
 
 const SM = {
   debug: false,
@@ -27,6 +31,195 @@ function trustedContent(html) {
 
 function getDialogV2() {
   return foundry.applications.api.DialogV2;
+}
+
+function ensureMerchantStyles() {
+  if (document.querySelector('link[href*="sanctum-merchant.css"]')) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `modules/${MODULE_ID}/styles/sanctum-merchant.css`;
+  document.head.appendChild(link);
+}
+
+Hooks.once("init", ensureMerchantStyles);
+if (document.head) ensureMerchantStyles();
+
+const STOCK_FLAG = "stock";
+const stockPreview = new WeakMap();
+let selectedDirectoryActorId = null;
+let targetRefreshQueued = false;
+
+function normalizeRarity(str) {
+  if (!str || !String(str).trim()) return "common";
+  let value = String(str).toLowerCase().trim();
+  if (value === "veryrare") value = "very rare";
+  return value.replace(/[\s_-]+/g, " ");
+}
+
+function actorsMatch(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.uuid && b.uuid) return a.uuid === b.uuid;
+  return !!(a.id && b.id && a.id === b.id);
+}
+
+function resolveStockTarget() {
+  const ip = SanctumMerchantItemPilesIntegration;
+  const pinned = ip.currentMerchantActor;
+  const merchantTargets = [];
+  for (const app of ip.getOpenApps()) {
+    if (!ip.isMerchantWindow(app)) continue;
+    const actor = app.merchant || app.actor;
+    if (!actor) continue;
+    merchantTargets.push({ actor, name: actor.name, source: "window" });
+  }
+  if (pinned) {
+    const pinnedTarget = merchantTargets.find(entry => actorsMatch(entry.actor, pinned));
+    if (pinnedTarget) return pinnedTarget;
+  }
+  if (merchantTargets.length) return merchantTargets[0];
+  for (const token of canvas?.tokens?.controlled ?? []) {
+    if (!token.actor) continue;
+    return { actor: token.actor, name: token.name || token.actor.name, token, source: "token" };
+  }
+  const directoryActor = selectedDirectoryActorId ? game.actors.get(selectedDirectoryActorId) : null;
+  if (directoryActor) {
+    return { actor: directoryActor, name: directoryActor.name, source: "directory" };
+  }
+  return null;
+}
+
+function getStockFlagDocument(actor) {
+  if (!actor) return null;
+  if (actor.isToken) return actor.token?.document ?? actor.token ?? actor;
+  return actor;
+}
+
+function getWorldChatMode() {
+  try {
+    const mode = game.settings.get(MODULE_ID, "restockChatMode");
+    if (mode === "off" || mode === "summary" || mode === "full") return mode;
+  } catch (error) { /* ignore */ }
+  try {
+    return game.settings.get(MODULE_ID, "sendRestockMessage") === false ? "off" : "full";
+  } catch (error) {
+    return "full";
+  }
+}
+
+function getWorldStockConfig() {
+  const compendium = game.settings.get(MODULE_ID, "compendium");
+  const itemSource = game.settings.get(MODULE_ID, "itemSource") || `compendium:${compendium}`;
+  return {
+    source: itemSource,
+    formula: game.settings.get(MODULE_ID, "formula"),
+    types: game.settings.get(MODULE_ID, "types").split(",").map(t => t.trim()).filter(Boolean),
+    tags: game.settings.get(MODULE_ID, "tags").split(",").map(t => t.trim()).filter(Boolean),
+    strictRarity: game.settings.get(MODULE_ID, "strictRarity"),
+    merchantMessage: game.settings.get(MODULE_ID, "merchantMessage"),
+    restockChatMode: getWorldChatMode(),
+    restockMode: game.settings.get(MODULE_ID, "restockMode") || "add"
+  };
+}
+
+function loadMerchantStockConfig(actor) {
+  const saved = getStockFlagDocument(actor)?.getFlag?.(MODULE_ID, STOCK_FLAG);
+  return saved && typeof saved === "object" ? saved : null;
+}
+
+async function saveMerchantStockConfig(actor, config) {
+  const doc = getStockFlagDocument(actor);
+  if (!doc?.setFlag) return;
+  await doc.setFlag(MODULE_ID, STOCK_FLAG, config);
+}
+
+async function clearMerchantStockConfig(actor) {
+  const doc = getStockFlagDocument(actor);
+  if (!doc?.unsetFlag) return;
+  await doc.unsetFlag(MODULE_ID, STOCK_FLAG);
+}
+
+function findOpenConfigDialog() {
+  const apps = foundry.applications?.instances?.values?.() ?? [];
+  for (const app of apps) {
+    if (app.element?.querySelector?.("[data-sanctum-config]")) return app;
+  }
+  return null;
+}
+
+function stockTargetKey(target) {
+  if (!target?.actor) return "";
+  return [
+    target.source || "",
+    target.actor.uuid || target.actor.id || "",
+    target.token?.id || target.actor.token?.id || ""
+  ].join(":");
+}
+
+function setConfigDialogTarget(dialog, target) {
+  const root = dialog?.element;
+  if (!root) return;
+  const label = root.querySelector("[data-sanctum-target]");
+  if (label) {
+    label.textContent = target
+      ? `Target: ${target.name}`
+      : "No merchant selected — open an Item Piles merchant or control a token.";
+  }
+  const title = target ? `Sanctum Merchant — ${target.name}` : "Sanctum Merchant";
+  if (dialog.options?.window) dialog.options.window.title = title;
+  const titleEl = root.querySelector(".window-title");
+  if (titleEl) titleEl.textContent = title;
+}
+
+function refreshOpenConfigDialogTarget() {
+  const dialog = findOpenConfigDialog();
+  if (!dialog?.element) return;
+  const target = resolveStockTarget();
+  const key = stockTargetKey(target);
+  const previous = dialog.element.dataset.sanctumTargetKey ?? "";
+  if (key === previous) {
+    setConfigDialogTarget(dialog, target);
+    return;
+  }
+  dialog.element.dataset.sanctumTargetKey = key;
+  clearStockPreview(dialog);
+  bindConfigDialog(dialog);
+}
+
+function queueConfigTargetRefresh() {
+  if (targetRefreshQueued) return;
+  targetRefreshQueued = true;
+  requestAnimationFrame(() => {
+    targetRefreshQueued = false;
+    refreshOpenConfigDialogTarget();
+  });
+}
+
+function bindActorDirectoryTarget(root) {
+  const host = asElement(root) ?? asElement(ui.actors);
+  if (!host || host.dataset.sanctumTargetClicks) return;
+  host.dataset.sanctumTargetClicks = "true";
+  host.addEventListener("click", event => {
+    const row = event.target.closest("[data-entry-id], [data-document-id]");
+    if (!row || !host.contains(row)) return;
+    const id = row.dataset.entryId || row.dataset.documentId;
+    if (!id || !game.actors.get(id)) return;
+    selectedDirectoryActorId = id;
+    queueConfigTargetRefresh();
+  });
+}
+
+function registerConfigTargetWatchers() {
+  if (registerConfigTargetWatchers.done) return;
+  registerConfigTargetWatchers.done = true;
+  Hooks.on("controlToken", queueConfigTargetRefresh);
+  const onMerchantApp = app => {
+    if (SanctumMerchantItemPilesIntegration.isMerchantWindow(app)) queueConfigTargetRefresh();
+  };
+  Hooks.on("renderApplication", onMerchantApp);
+  Hooks.on("closeApplication", onMerchantApp);
+  Hooks.on("renderApplicationV2", onMerchantApp);
+  Hooks.on("closeApplicationV2", onMerchantApp);
 }
 
 function createTagElement(tag, { removable = true } = {}) {
@@ -179,6 +372,7 @@ class SanctumMerchantItemPilesIntegration {
       if (app.actor === this.currentMerchantActor || app.merchant === this.currentMerchantActor) {
         this.currentMerchantActor = null;
       }
+      if (this.isMerchantWindow(app)) queueConfigTargetRefresh();
     });
 
     this.isIntegrationReady = true;
@@ -191,6 +385,7 @@ class SanctumMerchantItemPilesIntegration {
     if (buttons.some(button => button.class === "sanctum-merchant-stock")) return;
 
     this.currentMerchantActor = app.merchant || app.actor;
+    queueConfigTargetRefresh();
 
     let hideText = false;
     try {
@@ -245,21 +440,7 @@ class SanctumMerchantItemPilesIntegration {
   }
 
   static getCurrentMerchant() {
-    if (this.currentMerchantActor && this.isItemPilesMerchant(this.currentMerchantActor)) {
-      return this.currentMerchantActor;
-    }
-
-    if (canvas?.tokens?.controlled) {
-      for (const token of canvas.tokens.controlled) {
-        if (token.actor && this.isItemPilesMerchant(token.actor)) return token.actor;
-      }
-    }
-
-    for (const app of this.getOpenApps()) {
-      if (this.isItemPilesMerchantApp(app)) return app.actor || app.merchant;
-    }
-
-    return null;
+    return resolveStockTarget()?.actor ?? null;
   }
 
   static async addItemsToMerchant(merchant, items) {
@@ -291,7 +472,7 @@ class SanctumMerchantItemPilesIntegration {
     }
   }
 
-  static async clearMerchantInventory(merchant) {
+  static async clearMerchantInventory(merchant, { silent = false } = {}) {
     if (!merchant) {
       ui.notifications.error("No merchant provided to clear.");
       return false;
@@ -308,7 +489,7 @@ class SanctumMerchantItemPilesIntegration {
       }
 
       if (itemIds.length === 0) {
-        ui.notifications.warn(`${merchant.name} has no items to remove.`);
+        if (!silent) ui.notifications.warn(`${merchant.name} has no items to remove.`);
         return true;
       }
 
@@ -327,12 +508,38 @@ class SanctumMerchantItemPilesIntegration {
         await merchant.deleteEmbeddedDocuments("Item", itemIds);
       }
 
-      ui.notifications.info(`${merchant.name}'s inventory cleared (${itemIds.length} items)!`);
+      if (!silent) ui.notifications.info(`${merchant.name}'s inventory cleared (${itemIds.length} items)!`);
       return true;
     } catch (error) {
       SM.error("Failed to clear merchant inventory:", error);
       ui.notifications.error("Failed to clear merchant inventory.");
       return false;
+    }
+  }
+
+  static snapshotItems(merchant) {
+    if (!merchant?.items) return [];
+    return merchant.items.map(item => item.toObject());
+  }
+
+  static async restoreItems(merchant, items) {
+    if (!merchant || !items?.length) return true;
+    try {
+      if (this.isItemPilesMerchant(merchant) && game.itempiles?.API?.addItems) {
+        await game.itempiles.API.addItems(merchant, items);
+        return true;
+      }
+      await merchant.createEmbeddedDocuments("Item", items);
+      return true;
+    } catch (error) {
+      SM.error("Failed to restore merchant inventory via Item Piles:", error);
+      try {
+        await merchant.createEmbeddedDocuments("Item", items);
+        return true;
+      } catch (fallbackError) {
+        SM.error("Failed to restore merchant inventory:", fallbackError);
+        return false;
+      }
     }
   }
 }
@@ -384,11 +591,45 @@ Hooks.once("init", () => {
 
   game.settings.register(MODULE_ID, "sendRestockMessage", {
     name: "Send Restock Message",
-    hint: "Whisper a chat message to players when a merchant is stocked. Uncheck to restock silently.",
+    hint: "Legacy toggle. Use Restock Chat instead.",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true
+  });
+
+  game.settings.register(MODULE_ID, "restockChatMode", {
+    name: "Restock Chat",
+    hint: "What to whisper to players when a merchant is stocked.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      off: "Off (no chat message)",
+      summary: "Summary (count and rarities)",
+      full: "Full list of item names"
+    },
+    default: "full"
+  });
+
+  game.settings.register(MODULE_ID, "chatModeMigrated", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+
+  game.settings.register(MODULE_ID, "restockMode", {
+    name: "Default Restock Mode",
+    hint: "Add to existing stock, or replace (clear then add).",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      add: "Add to stock",
+      replace: "Replace stock"
+    },
+    default: "add"
   });
 
   game.settings.register(MODULE_ID, "merchantMessage", {
@@ -475,81 +716,174 @@ function selectedTags(root, selector) {
   return Array.from(root.querySelectorAll(selector)).map(el => el.dataset.tag).filter(Boolean);
 }
 
-async function stockMerchantCallback(root) {
-  try {
-    const sourceValue = fieldValue(root, "source");
-    await game.settings.set(MODULE_ID, "itemSource", sourceValue);
-
-    let sourceType;
-    let sourceId;
-    if (sourceValue?.includes(":")) [sourceType, sourceId] = sourceValue.split(":");
-    else {
-      sourceType = "compendium";
-      sourceId = sourceValue || game.settings.get(MODULE_ID, "compendium");
-    }
-
-    const formula = fieldValue(root, "formula");
-    const types = selectedTags(root, ".item-types .tag");
-    const presetName = fieldValue(root, "rarity-preset");
-    const merchantMessage = fieldValue(root, "merchantMessage");
-    const sendRestockMessage = fieldChecked(root, "sendRestockMessage");
-    const strictRarity = fieldChecked(root, "strictRarity");
-
-    let tags;
-    if (presetName && rarityPresets[presetName]) tags = rarityPresets[presetName];
-    else tags = selectedTags(root, ".rarity-tags .tag").map(tag => tag.toLowerCase());
-
-    if (types.length === 0) {
-      ui.notifications.warn("Please select at least one item type.");
-      return false;
-    }
-
-    if (sourceType === "compendium") {
-      await game.settings.set(MODULE_ID, "compendium", sourceId);
-      await game.settings.set(MODULE_ID, "formula", formula);
-      await game.settings.set(MODULE_ID, "types", types.join(","));
-      await game.settings.set(MODULE_ID, "strictRarity", strictRarity);
-      await game.settings.set(MODULE_ID, "merchantMessage", merchantMessage);
-      await game.settings.set(MODULE_ID, "tags", tags.join(","));
-    }
-
-    await game.settings.set(MODULE_ID, "sendRestockMessage", sendRestockMessage);
-
-    await game.sanctumMerchant.populateMerchantWithJSON({
-      source: sourceId,
-      sourceType,
-      rollFormula: formula,
-      allowedTypes: types,
-      rareTags: tags,
-      strictRarity,
-      merchantMessage,
-      sendRestockMessage
-    });
-
-    ui.notifications.info("Items stocked successfully!");
-  } catch (err) {
-    SM.error("Merchant stocking failed:", err);
-    ui.notifications.error("Something went wrong stocking the merchant.");
+function readFormStockConfig(root) {
+  const sourceValue = fieldValue(root, "source");
+  let sourceType;
+  let sourceId;
+  if (sourceValue?.includes(":")) [sourceType, sourceId] = sourceValue.split(":");
+  else {
+    sourceType = "compendium";
+    sourceId = sourceValue || game.settings.get(MODULE_ID, "compendium");
   }
-  return false;
+  const presetName = fieldValue(root, "rarity-preset");
+  const tags = presetName && rarityPresets[presetName]
+    ? rarityPresets[presetName]
+    : selectedTags(root, ".rarity-tags .tag").map(tag => tag.toLowerCase());
+  return {
+    source: sourceValue || `compendium:${sourceId}`,
+    sourceType,
+    sourceId,
+    formula: fieldValue(root, "formula"),
+    types: selectedTags(root, ".item-types .tag"),
+    tags,
+    presetName,
+    strictRarity: fieldChecked(root, "strictRarity"),
+    merchantMessage: fieldValue(root, "merchantMessage"),
+    restockChatMode: fieldValue(root, "restockChatMode") || "full",
+    restockMode: fieldValue(root, "restockMode") || "add"
+  };
+}
+
+async function saveWorldStockConfig(config) {
+  if (config.sourceType === "compendium") {
+    await game.settings.set(MODULE_ID, "itemSource", config.source);
+    await game.settings.set(MODULE_ID, "compendium", config.sourceId);
+    await game.settings.set(MODULE_ID, "formula", config.formula);
+    await game.settings.set(MODULE_ID, "types", config.types.join(","));
+    await game.settings.set(MODULE_ID, "strictRarity", config.strictRarity);
+    await game.settings.set(MODULE_ID, "merchantMessage", config.merchantMessage);
+    await game.settings.set(MODULE_ID, "tags", config.tags.join(","));
+  }
+  await game.settings.set(MODULE_ID, "restockChatMode", config.restockChatMode);
+  await game.settings.set(MODULE_ID, "restockMode", config.restockMode);
+}
+
+function stockRollFingerprint(config) {
+  return JSON.stringify({
+    source: config.source || "",
+    sourceId: config.sourceId || "",
+    formula: config.formula || "",
+    types: [...(config.types || [])].map(t => String(t).toLowerCase()).sort(),
+    tags: [...(config.tags || [])].map(t => normalizeRarity(t)).sort(),
+    strictRarity: config.strictRarity !== false
+  });
+}
+
+function clearStockPreview(dialog) {
+  stockPreview.delete(dialog);
+  const root = dialog?.element;
+  if (!root) return;
+  renderStockPreview(root, []);
+  const heading = root.querySelector(".sanctum-preview-heading");
+  if (heading) heading.textContent = "Rolled stock";
+}
+
+function invalidatePreviewIfRollInputsChanged(dialog) {
+  const preview = stockPreview.get(dialog);
+  if (!preview) return;
+  if (stockRollFingerprint(readFormStockConfig(dialog.element)) === stockRollFingerprint(preview.config)) return;
+  clearStockPreview(dialog);
+}
+
+function renderStockPreview(root, docs) {
+  const wrap = root.querySelector(".sanctum-preview");
+  const list = root.querySelector(".sanctum-preview-list");
+  if (!wrap || !list) return;
+  list.replaceChildren();
+  docs.forEach((item, index) => {
+    const rarity = normalizeRarity(item.system?.rarity);
+    const row = document.createElement("label");
+    row.style.cssText = "display:flex;gap:8px;align-items:center;margin:3px 0;";
+    row.innerHTML = `<input type="checkbox" class="sanctum-preview-item" data-index="${index}" checked />
+      <span>${item.name}</span>
+      <span style="opacity:0.75;font-size:0.85em;">${item.type || ""} · ${rarity}</span>`;
+    list.append(row);
+  });
+  wrap.style.display = docs.length ? "block" : "none";
+}
+
+async function rollStockPreview(dialog) {
+  const root = dialog.element;
+  const target = resolveStockTarget();
+  if (!target) {
+    ui.notifications.error("No merchant selected. Open an Item Piles merchant or control a token.");
+    return;
+  }
+  const config = readFormStockConfig(root);
+  if (config.types.length === 0) {
+    ui.notifications.warn("Please select at least one item type.");
+    return;
+  }
+  const rolled = await game.sanctumMerchant.selectStockItems(config);
+  if (!rolled?.docs?.length) return;
+  stockPreview.set(dialog, { docs: rolled.docs, sourceName: rolled.sourceName, config, target });
+  renderStockPreview(root, rolled.docs);
+  const heading = root.querySelector(".sanctum-preview-heading");
+  if (heading) heading.textContent = `Rolled stock (${rolled.docs.length}) for ${target.name}`;
+  ui.notifications.info(`Rolled ${rolled.docs.length} items. Uncheck any to skip, then Confirm Stock.`);
+}
+
+async function confirmStockPreview(dialog) {
+  const preview = stockPreview.get(dialog);
+  if (!preview?.docs?.length) {
+    ui.notifications.warn("Roll stock first, then confirm.");
+    return;
+  }
+  const root = dialog.element;
+  const current = readFormStockConfig(root);
+  if (stockRollFingerprint(current) !== stockRollFingerprint(preview.config)) {
+    clearStockPreview(dialog);
+    ui.notifications.warn("Filters changed since the last roll. Roll Stock again.");
+    return;
+  }
+  const checked = new Set(
+    Array.from(root.querySelectorAll(".sanctum-preview-item:checked")).map(el => Number(el.dataset.index))
+  );
+  const docs = preview.docs.filter((_item, index) => checked.has(index));
+  if (docs.length === 0) {
+    ui.notifications.warn("No items selected to stock.");
+    return;
+  }
+  const config = {
+    ...preview.config,
+    restockMode: current.restockMode,
+    restockChatMode: current.restockChatMode,
+    merchantMessage: current.merchantMessage
+  };
+  const target = resolveStockTarget() || preview.target;
+  if (!target) {
+    ui.notifications.error("No merchant selected. Open an Item Piles merchant or control a token.");
+    return;
+  }
+  await saveWorldStockConfig(config);
+  await saveMerchantStockConfig(target.actor, {
+    source: config.source,
+    formula: config.formula,
+    types: config.types,
+    tags: config.tags,
+    strictRarity: config.strictRarity,
+    merchantMessage: config.merchantMessage,
+    restockChatMode: config.restockChatMode,
+    restockMode: config.restockMode
+  });
+  await game.sanctumMerchant.commitStockItems(target.actor, docs, {
+    sourceName: preview.sourceName,
+    merchantName: target.name,
+    restockMode: config.restockMode,
+    restockChatMode: config.restockChatMode,
+    merchantMessage: config.merchantMessage
+  });
+  clearStockPreview(dialog);
 }
 
 async function clearInventoryCallback() {
   try {
-    let merchant = SanctumMerchantItemPilesIntegration.getCurrentMerchant();
-    if (!merchant) {
-      for (const token of canvas.tokens.controlled) {
-        if (token.actor) {
-          merchant = token.actor;
-          break;
-        }
-      }
-    }
-    if (!merchant) {
-      ui.notifications.error("No merchant found to clear.");
+    const target = resolveStockTarget();
+    if (!target) {
+      ui.notifications.error("No merchant selected. Open an Item Piles merchant or control a token.");
       return;
     }
-    await SanctumMerchantItemPilesIntegration.clearMerchantInventory(merchant);
+    await SanctumMerchantItemPilesIntegration.clearMerchantInventory(target.actor);
   } catch (err) {
     SM.error("Inventory clear failed:", err);
     ui.notifications.error("Something went wrong clearing the merchant.");
@@ -559,13 +893,21 @@ async function clearInventoryCallback() {
 async function resetMerchantSettings() {
   try {
     await game.settings.set(MODULE_ID, "compendium", "world.ddb-oathbreaker-ddb-items");
-    await game.settings.set(MODULE_ID, "formula", "1d6+2");
-    await game.settings.set(MODULE_ID, "types", "weapon,consumable,equipment,loot,container,tool");
+    await game.settings.set(MODULE_ID, "formula", DEFAULT_FORMULA);
+    await game.settings.set(MODULE_ID, "types", DEFAULT_STOCK_TYPES.join(","));
     await game.settings.set(MODULE_ID, "strictRarity", true);
     await game.settings.set(MODULE_ID, "sendRestockMessage", true);
-    await game.settings.set(MODULE_ID, "merchantMessage", `🧿 Got somethin' that might interest ya'!`);
+    await game.settings.set(MODULE_ID, "restockChatMode", "full");
+    await game.settings.set(MODULE_ID, "restockMode", "add");
+    await game.settings.set(MODULE_ID, "merchantMessage", DEFAULT_MERCHANT_MESSAGE);
     await game.settings.set(MODULE_ID, "tags", "");
-    ui.notifications.info("Sanctum Merchant settings reset to default.");
+    const target = resolveStockTarget();
+    if (target?.actor) {
+      await clearMerchantStockConfig(target.actor);
+      ui.notifications.info(`Sanctum Merchant settings reset to default for ${target.name}.`);
+    } else {
+      ui.notifications.info("Sanctum Merchant world settings reset to default.");
+    }
   } catch (err) {
     SM.error("Reset failed:", err);
     ui.notifications.error("Could not reset merchant settings.");
@@ -590,7 +932,14 @@ function injectMerchantButton(root) {
 
 function bindConfigDialog(dialog) {
   const root = dialog.element;
-  const savedSource = game.settings.get(MODULE_ID, "itemSource")
+  root.querySelector(".item-types")?.replaceChildren();
+  root.querySelector(".rarity-tags")?.replaceChildren();
+  const target = resolveStockTarget();
+  const config = { ...getWorldStockConfig(), ...(target ? loadMerchantStockConfig(target.actor) : {}) };
+  root.dataset.sanctumTargetKey = stockTargetKey(target);
+  setConfigDialogTarget(dialog, target);
+
+  const savedSource = config.source || game.settings.get(MODULE_ID, "itemSource")
     || `compendium:${game.settings.get(MODULE_ID, "compendium")}`;
   const sourceSelect = root.querySelector('[name="source"]');
   if (sourceSelect) {
@@ -627,125 +976,142 @@ function bindConfigDialog(dialog) {
     }
   }
 
-  function restoreSavedTypes() {
+  function restoreSavedTypes(types = config.types) {
     const typeList = root.querySelector(".item-types");
     if (!typeList) return;
-    const savedTypes = game.settings.get(MODULE_ID, "types").split(",").map(t => t.trim()).filter(Boolean);
-    for (const type of savedTypes) {
+    for (const type of types || []) {
       if (!typeList.querySelector(`[data-tag="${type}"]`)) {
         typeList.append(createTagElement(type));
       }
     }
   }
 
-  sourceSelect?.addEventListener("change", async event => {
-    const val = event.currentTarget.value;
-    await game.settings.set(MODULE_ID, "itemSource", val);
-    if (val?.startsWith("compendium:")) {
-      await game.settings.set(MODULE_ID, "compendium", val.split(":")[1]);
-    }
-    root.querySelector(".item-types")?.replaceChildren();
-    await populateItemTypes(val);
-    restoreSavedTypes();
-  });
+  if (!root.dataset.sanctumBound) {
+    root.dataset.sanctumBound = "true";
+    sourceSelect?.addEventListener("change", async event => {
+      const val = event.currentTarget.value;
+      await game.settings.set(MODULE_ID, "itemSource", val);
+      if (val?.startsWith("compendium:")) {
+        await game.settings.set(MODULE_ID, "compendium", val.split(":")[1]);
+      }
+      root.querySelector(".item-types")?.replaceChildren();
+      await populateItemTypes(val);
+      restoreSavedTypes();
+    });
 
-  root.querySelector(".add-type")?.addEventListener("click", () => {
-    const type = root.querySelector('[name="type-select"]')?.value;
-    const typeList = root.querySelector(".item-types");
-    if (type && typeList && !typeList.querySelector(`[data-tag="${type}"]`)) {
-      typeList.append(createTagElement(type));
-    }
-  });
-
-  root.querySelector(".select-all-types")?.addEventListener("click", () => {
-    const typeSelect = root.querySelector('[name="type-select"]');
-    const typeList = root.querySelector(".item-types");
-    if (!typeSelect || !typeList) return;
-    for (const option of typeSelect.options) {
-      const type = option.value;
-      if (type && !typeList.querySelector(`[data-tag="${type}"]`)) {
+    root.querySelector(".add-type")?.addEventListener("click", () => {
+      const type = root.querySelector('[name="type-select"]')?.value;
+      const typeList = root.querySelector(".item-types");
+      if (type && typeList && !typeList.querySelector(`[data-tag="${type}"]`)) {
         typeList.append(createTagElement(type));
       }
-    }
-  });
+    });
 
-  const formulaInput = root.querySelector('[name="formula"]');
-  if (formulaInput) formulaInput.value = game.settings.get(MODULE_ID, "formula");
-  const strictInput = root.querySelector('[name="strictRarity"]');
-  if (strictInput) strictInput.checked = game.settings.get(MODULE_ID, "strictRarity");
-  const messageInput = root.querySelector('[name="merchantMessage"]');
-  if (messageInput) messageInput.value = game.settings.get(MODULE_ID, "merchantMessage");
-  const sendMessageInput = root.querySelector('[name="sendRestockMessage"]');
-  if (sendMessageInput) sendMessageInput.checked = game.settings.get(MODULE_ID, "sendRestockMessage") !== false;
-
-  root.querySelector(".import-json")?.addEventListener("click", async () => {
-    const jsonText = fieldValue(root, "json-import");
-    if (!jsonText) {
-      ui.notifications.warn("Please paste JSON data to import.");
-      return;
-    }
-    try {
-      const result = await JSONImportManager.importJSON(jsonText);
-      ui.notifications.info(`Imported "${result.name}" with ${result.itemCount} items.`);
-      const textarea = root.querySelector('[name="json-import"]');
-      if (textarea) textarea.value = "";
-      dialog.close();
-      game.sanctumMerchant.openConfigDialog();
-    } catch (error) {
-      ui.notifications.error(`Import failed: ${error.message}`);
-    }
-  });
-
-  root.querySelector(".manage-imports")?.addEventListener("click", () => {
-    const collections = JSONImportManager.getAllCollections();
-    let html = "<h3>Imported Collections</h3>";
-    if (collections.length === 0) html += "<p>No imported collections found.</p>";
-    else {
-      html += collections.map(col => {
-        const date = new Date(col.timestamp).toLocaleString();
-        return `<div style="margin:10px 0;padding:5px;border:1px solid #ccc;">
-          <strong>${col.name}</strong> (${col.itemCount} items)<br>
-          <small>Imported: ${date}</small><br>
-          <button type="button" class="delete-import" data-id="${col.id}">Delete</button>
-        </div>`;
-      }).join("");
-    }
-
-    getDialogV2().wait({
-      window: { title: "Manage Imports" },
-      content: trustedContent(html),
-      buttons: [{ action: "close", label: "Close" }],
-      render: (_event, dialog) => {
-        dialog.element.querySelectorAll(".delete-import").forEach(button => {
-          button.addEventListener("click", () => {
-            JSONImportManager.deleteCollection(button.dataset.id);
-            ui.notifications.info("Collection deleted.");
-            dialog.close();
-            game.sanctumMerchant.openConfigDialog();
-          });
-        });
+    root.querySelector(".select-all-types")?.addEventListener("click", () => {
+      const typeSelect = root.querySelector('[name="type-select"]');
+      const typeList = root.querySelector(".item-types");
+      if (!typeSelect || !typeList) return;
+      for (const option of typeSelect.options) {
+        const type = option.value;
+        if (type && !typeList.querySelector(`[data-tag="${type}"]`)) {
+          typeList.append(createTagElement(type));
+        }
       }
     });
-  });
+
+    root.querySelector(".import-json")?.addEventListener("click", async () => {
+      const jsonText = fieldValue(root, "json-import");
+      if (!jsonText) {
+        ui.notifications.warn("Please paste JSON data to import.");
+        return;
+      }
+      try {
+        const result = await JSONImportManager.importJSON(jsonText);
+        ui.notifications.info(`Imported "${result.name}" with ${result.itemCount} items.`);
+        const textarea = root.querySelector('[name="json-import"]');
+        if (textarea) textarea.value = "";
+        dialog.close();
+        game.sanctumMerchant.openConfigDialog();
+      } catch (error) {
+        ui.notifications.error(`Import failed: ${error.message}`);
+      }
+    });
+
+    root.querySelector(".manage-imports")?.addEventListener("click", () => {
+      const collections = JSONImportManager.getAllCollections();
+      let html = "<h3>Imported Collections</h3>";
+      if (collections.length === 0) html += "<p>No imported collections found.</p>";
+      else {
+        html += collections.map(col => {
+          const date = new Date(col.timestamp).toLocaleString();
+          return `<div style="margin:10px 0;padding:5px;border:1px solid #ccc;">
+            <strong>${col.name}</strong> (${col.itemCount} items)<br>
+            <small>Imported: ${date}</small><br>
+            <button type="button" class="delete-import" data-id="${col.id}">Delete</button>
+          </div>`;
+        }).join("");
+      }
+
+      getDialogV2().wait({
+        classes: ["sanctum-merchant-dialog"],
+        window: { title: "Manage Imports" },
+        content: trustedContent(html),
+        buttons: [{ action: "close", label: "Close" }],
+        render: (_event, manageDialog) => {
+          manageDialog.element.querySelectorAll(".delete-import").forEach(button => {
+            button.addEventListener("click", () => {
+              JSONImportManager.deleteCollection(button.dataset.id);
+              ui.notifications.info("Collection deleted.");
+              manageDialog.close();
+              game.sanctumMerchant.openConfigDialog();
+            });
+          });
+        }
+      });
+    });
+
+    root.querySelector('[name="rarity-preset"]')?.addEventListener("change", event => {
+      const presetValue = event.currentTarget.value;
+      const list = root.querySelector(".rarity-tags");
+      list?.replaceChildren();
+      if (presetValue && rarityPresets[presetValue]) {
+        rarityPresets[presetValue].forEach(tag => list.append(createTagElement(tag, { removable: false })));
+      }
+    });
+
+    root.querySelector(".add-rarity")?.addEventListener("click", () => {
+      const tag = root.querySelector('[name="rarity-select"]')?.value;
+      const list = root.querySelector(".rarity-tags");
+      if (tag && list && !list.querySelector(`[data-tag="${tag}"]`)) {
+        list.append(createTagElement(tag));
+      }
+    });
+
+    const onRollInputsChanged = () => queueMicrotask(() => invalidatePreviewIfRollInputsChanged(dialog));
+    root.addEventListener("change", event => {
+      if (["source", "formula", "strictRarity", "rarity-preset"].includes(event.target?.name)) onRollInputsChanged();
+    });
+    root.addEventListener("input", event => {
+      if (event.target?.name === "formula") onRollInputsChanged();
+    });
+    root.addEventListener("click", event => {
+      if (event.target.closest(".add-type, .select-all-types, .add-rarity, .remove-tag")) onRollInputsChanged();
+    });
+  }
+
+  const formulaInput = root.querySelector('[name="formula"]');
+  if (formulaInput) formulaInput.value = config.formula;
+  const strictInput = root.querySelector('[name="strictRarity"]');
+  if (strictInput) strictInput.checked = config.strictRarity;
+  const messageInput = root.querySelector('[name="merchantMessage"]');
+  if (messageInput) messageInput.value = config.merchantMessage;
+  const chatSelect = root.querySelector('[name="restockChatMode"]');
+  if (chatSelect) chatSelect.value = config.restockChatMode || "full";
+  const modeSelect = root.querySelector('[name="restockMode"]');
+  if (modeSelect) modeSelect.value = config.restockMode || "add";
 
   const rarityList = root.querySelector(".rarity-tags");
-  const savedTags = game.settings.get(MODULE_ID, "tags").split(",").map(t => t.trim()).filter(Boolean);
-  savedTags.forEach(tag => rarityList?.append(createTagElement(tag)));
-
-  root.querySelector('[name="rarity-preset"]')?.addEventListener("change", event => {
-    const presetValue = event.currentTarget.value;
-    rarityList?.replaceChildren();
-    if (presetValue && rarityPresets[presetValue]) {
-      rarityPresets[presetValue].forEach(tag => rarityList.append(createTagElement(tag, { removable: false })));
-    }
-  });
-
-  root.querySelector(".add-rarity")?.addEventListener("click", () => {
-    const tag = root.querySelector('[name="rarity-select"]')?.value;
-    if (tag && rarityList && !rarityList.querySelector(`[data-tag="${tag}"]`)) {
-      rarityList.append(createTagElement(tag));
-    }
-  });
+  (config.tags || []).forEach(tag => rarityList?.append(createTagElement(tag)));
 
   populateItemTypes(sourceSelect?.value).then(restoreSavedTypes);
 }
@@ -771,6 +1137,8 @@ function configDialogContent() {
     .join("");
 
   return trustedContent(`
+    <div data-sanctum-config="true"></div>
+    <p data-sanctum-target style="margin:0 0 8px 0;font-weight:bold;"></p>
     <div class="form-group" style="border:2px solid #4a90e2;padding:10px;border-radius:5px;background:#f0f8ff;">
       <label><strong>Import JSON Items</strong></label>
       <textarea name="json-import" placeholder='Paste JSON like: {"name": "Collection Name", "items": [...]}'
@@ -843,23 +1211,34 @@ function configDialogContent() {
         </td>
       </tr>
       <tr>
-        <td style="width:150px;padding:8px 10px;vertical-align:top;"><label>Restock Message</label></td>
+        <td style="width:150px;padding:8px 10px;vertical-align:top;"><label>Restock Mode</label></td>
         <td style="padding:8px 10px;">
-          <label>
-            <input type="checkbox" name="sendRestockMessage" />
-            Whisper restock message to players
-          </label>
-          <p style="font-size:0.8em;margin-top:4px;">
-            Uncheck to stock merchants without posting a chat message.
-          </p>
+          <select name="restockMode" style="width:100%;height:28px;padding:4px;box-sizing:border-box;">
+            <option value="add">Add to stock</option>
+            <option value="replace">Replace stock (clear first)</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td style="width:150px;padding:8px 10px;vertical-align:top;"><label>Restock Chat</label></td>
+        <td style="padding:8px 10px;">
+          <select name="restockChatMode" style="width:100%;height:28px;padding:4px;box-sizing:border-box;">
+            <option value="off">Off (no chat message)</option>
+            <option value="summary">Summary (count and rarities)</option>
+            <option value="full">Full list of item names</option>
+          </select>
           <input type="text" name="merchantMessage" style="width:100%;height:28px;padding:4px;margin-top:6px;box-sizing:border-box;" />
         </td>
       </tr>
     </table>
+    <div class="sanctum-preview" style="display:none;margin-top:12px;border:1px solid #888;padding:8px;max-height:220px;overflow:auto;">
+      <strong class="sanctum-preview-heading">Rolled stock</strong>
+      <div class="sanctum-preview-list"></div>
+    </div>
   `);
 }
 
-Hooks.once("ready", () => {
+Hooks.once("ready", async () => {
   SanctumMerchantItemPilesIntegration.initialize();
 
   game.sanctumMerchant = game.sanctumMerchant || {};
@@ -1024,8 +1403,20 @@ Hooks.once("ready", () => {
     sourceId: packId
   });
 
+  if (!game.settings.get(MODULE_ID, "chatModeMigrated")) {
+    if (game.settings.get(MODULE_ID, "sendRestockMessage") === false) {
+      await game.settings.set(MODULE_ID, "restockChatMode", "off");
+    }
+    await game.settings.set(MODULE_ID, "chatModeMigrated", true);
+  }
+
   injectMerchantButton();
-  Hooks.on("renderActorDirectory", (app, element) => injectMerchantButton(element ?? app.element));
+  bindActorDirectoryTarget();
+  registerConfigTargetWatchers();
+  Hooks.on("renderActorDirectory", (app, element) => {
+    injectMerchantButton(element ?? app.element);
+    bindActorDirectoryTarget(element ?? app.element);
+  });
   Hooks.on("renderSidebar", () => injectMerchantButton());
 
   game.sanctumMerchant.debugActorsTab = () => {
@@ -1041,87 +1432,93 @@ Hooks.once("ready", () => {
   };
 
   game.sanctumMerchant.openConfigDialog = async () => {
-    const result = await getDialogV2().wait({
-      window: { title: "Sanctum Merchant", icon: "fa-solid fa-coins", resizable: true },
-      position: { width: 700, height: 650 },
+    const existing = findOpenConfigDialog();
+    if (existing) {
+      existing.bringToFront?.();
+      refreshOpenConfigDialogTarget();
+      return existing;
+    }
+    const target = resolveStockTarget();
+    const dialog = new (getDialogV2())({
+      classes: ["sanctum-merchant-dialog"],
+      window: {
+        title: target ? `Sanctum Merchant — ${target.name}` : "Sanctum Merchant",
+        icon: "fa-solid fa-coins",
+        resizable: true
+      },
+      position: { width: 720, height: 760 },
+      form: { closeOnSubmit: false },
       content: configDialogContent(),
       buttons: [
         {
-          action: "stock",
-          label: "Stock Merchant",
-          icon: "fa-solid fa-coins",
+          action: "roll",
+          label: "Roll Stock",
+          icon: "fa-solid fa-dice",
           default: true,
-          callback: async (_event, _button, dialog) => {
-            await stockMerchantCallback(dialog.element);
-            return "reopen";
-          }
+          callback: async (_event, _button, app) => rollStockPreview(app)
+        },
+        {
+          action: "confirm",
+          label: "Confirm Stock",
+          icon: "fa-solid fa-coins",
+          callback: async (_event, _button, app) => confirmStockPreview(app)
         },
         {
           action: "clear",
           label: "Clear Inventory",
           icon: "fa-solid fa-trash",
-          callback: async () => {
-            await clearInventoryCallback();
-            return "reopen";
-          }
+          callback: async () => clearInventoryCallback()
         },
         {
           action: "reset",
           label: "Reset to Default",
-          callback: async () => {
+          callback: async (_event, _button, app) => {
             await resetMerchantSettings();
-            return "reopen";
+            clearStockPreview(app);
+            bindConfigDialog(app);
           }
         },
         {
           action: "audit",
           label: "Audit Tags",
-          callback: async () => {
-            await game.sanctumMerchant.auditTags();
-            return "audit";
-          }
+          callback: async () => game.sanctumMerchant.auditTags()
         },
         {
           action: "cancel",
           label: "Cancel",
           icon: "fa-solid fa-xmark",
-          callback: () => "cancel"
+          callback: (_event, _button, app) => app.close()
         }
-      ],
-      render: (_event, dialog) => bindConfigDialog(dialog)
+      ]
     });
-
-    if (result === "reopen") game.sanctumMerchant.openConfigDialog();
+    dialog.addEventListener("render", () => bindConfigDialog(dialog));
+    return dialog.render({ force: true });
   };
 
-  game.sanctumMerchant.populateMerchantWithJSON = async function(options = {}) {
-    const {
-      source,
-      sourceType = "compendium",
-      rollFormula = "1d6+2",
-      allowedTypes = ["weapon", "equipment", "consumable", "loot", "container", "tool"],
-      rareTags = ["rare", "very rare", "legendary"],
-      strictRarity = true,
-      merchantMessage = "🧿 Got somethin' that might interest ya'!",
-      sendRestockMessage = game.settings.get(MODULE_ID, "sendRestockMessage") !== false
-    } = options;
+  async function selectStockItems(config) {
+    const sourceType = config.sourceType || (config.source?.includes(":") ? config.source.split(":")[0] : "compendium");
+    const sourceId = config.sourceId || (config.source?.includes(":") ? config.source.split(":")[1] : config.source);
+    const allowedTypes = config.types || config.allowedTypes || [];
+    const rareTags = config.tags || config.rareTags || [];
+    const strictRarity = config.strictRarity !== false;
+    const rollFormula = config.formula || config.rollFormula || DEFAULT_FORMULA;
 
     let items = [];
     let sourceName = "";
 
     if (sourceType === "json") {
-      const collection = JSONImportManager.getCollection(source);
+      const collection = JSONImportManager.getCollection(sourceId);
       if (!collection) {
         ui.notifications.error("JSON collection not found. It may have expired.");
-        return;
+        return null;
       }
       items = collection.items;
       sourceName = collection.name;
     } else {
-      const pack = game.packs.get(source);
+      const pack = game.packs.get(sourceId);
       if (!pack) {
-        ui.notifications.error(`Compendium "${source}" not found.`);
-        return;
+        ui.notifications.error(`Compendium "${sourceId}" not found.`);
+        return null;
       }
       const index = await pack.getIndex({ fields: ["type", "name", "flags", "system"] });
       items = index.map(item => ({ ...item, system: item.system || {} }));
@@ -1133,20 +1530,10 @@ Hooks.once("ready", () => {
       return allowedTypes.some(allowedType => allowedType.toLowerCase() === itemType);
     });
 
-    const normalizeRarity = str => str?.toLowerCase().trim().replace(/[\s_-]+/g, " ") || null;
     const rareTagsNormalized = rareTags.map(t => normalizeRarity(t));
     const weightedIds = [];
-
     for (const item of filteredItems) {
-      let itemRarity;
-      if (sourceType === "json") itemRarity = normalizeRarity(item.system?.rarity);
-      else {
-        let systemRarity = item.system?.rarity;
-        if (systemRarity === "veryRare") systemRarity = "very rare";
-        if (!systemRarity || systemRarity.trim() === "") systemRarity = "common";
-        itemRarity = normalizeRarity(systemRarity);
-      }
-
+      const itemRarity = normalizeRarity(item.system?.rarity === "veryRare" ? "very rare" : item.system?.rarity);
       if (strictRarity) {
         if (rareTagsNormalized.includes(itemRarity)) weightedIds.push(...Array(3).fill(item._id));
       } else {
@@ -1157,50 +1544,112 @@ Hooks.once("ready", () => {
 
     if (weightedIds.length === 0) {
       ui.notifications.warn(`No items found matching criteria in "${sourceName}".`);
-      return;
+      return null;
     }
 
     const roll = await new Roll(rollFormula).evaluate();
     const numToSelect = Math.min(Math.max(1, roll.total), weightedIds.length);
-    const selectedIds = shuffleArray([...weightedIds]).slice(0, numToSelect);
-    const uniqueIds = [...new Set(selectedIds)];
+    const uniqueIds = [...new Set(shuffleArray([...weightedIds]).slice(0, numToSelect))];
 
     let docs = [];
     if (sourceType === "json") {
-      const collection = JSONImportManager.getCollection(source);
+      const collection = JSONImportManager.getCollection(sourceId);
       docs = uniqueIds.map(id => collection.items.find(i => i._id === id)).filter(Boolean);
     } else {
-      const pack = game.packs.get(source);
+      const pack = game.packs.get(sourceId);
       const loadedDocs = await Promise.all(uniqueIds.map(id => pack.getDocument(id)));
-      docs = loadedDocs.map(d => d.toObject());
+      docs = loadedDocs.filter(Boolean).map(d => d.toObject());
     }
+    return { docs, sourceName };
+  }
 
-    let merchant = SanctumMerchantItemPilesIntegration.getCurrentMerchant();
-    let stockedCount = 0;
-    const tokensToStock = merchant ? [{ actor: merchant, name: merchant.name }] : canvas.tokens.controlled;
-
-    for (const token of tokensToStock) {
-      const actor = token.actor;
-      if (!actor) continue;
-      const success = await SanctumMerchantItemPilesIntegration.addItemsToMerchant(actor, docs);
-      if (!success) continue;
-      stockedCount++;
-      const merchantName = token.name || actor.name || "The Merchant";
-      if (sendRestockMessage) {
-        const playerRecipients = game.users.filter(u => u.active && !u.isGM).map(u => u.id);
-        const itemNames = docs.map(i => i.name).join(", ");
-        ChatMessage.create({
-          speaker: { alias: merchantName },
-          content: `${merchantMessage}<br><strong>New Items:</strong> ${itemNames}`,
-          whisper: playerRecipients
-        });
-      }
-      ui.notifications.info(`Stocked ${docs.length} items from "${sourceName}" to ${merchantName}`);
-    }
-
-    if (stockedCount === 0) {
+  async function commitStockItems(actor, docs, {
+    sourceName = "",
+    merchantName = actor?.name || "The Merchant",
+    restockMode = "add",
+    restockChatMode = "full",
+    merchantMessage = DEFAULT_MERCHANT_MESSAGE
+  } = {}) {
+    if (!actor) {
       ui.notifications.warn("No merchants were stocked. Make sure you have a merchant selected or controlled.");
+      return false;
     }
+    let replacedSnapshot = null;
+    if (restockMode === "replace") {
+      replacedSnapshot = SanctumMerchantItemPilesIntegration.snapshotItems(actor);
+      const cleared = await SanctumMerchantItemPilesIntegration.clearMerchantInventory(actor, { silent: true });
+      if (!cleared) {
+        ui.notifications.error(`Could not clear ${merchantName} for replace restock.`);
+        return false;
+      }
+    }
+    const success = await SanctumMerchantItemPilesIntegration.addItemsToMerchant(actor, docs);
+    if (!success) {
+      if (replacedSnapshot?.length) {
+        const restored = await SanctumMerchantItemPilesIntegration.restoreItems(actor, replacedSnapshot);
+        ui.notifications.warn(restored
+          ? `Could not add items to ${merchantName}. Previous stock was restored.`
+          : `Could not add items to ${merchantName}, and previous stock could not be restored.`);
+      } else {
+        ui.notifications.warn(`Could not add items to ${merchantName}.`);
+      }
+      return false;
+    }
+    if (restockChatMode === "full" || restockChatMode === "summary") {
+      const playerRecipients = game.users.filter(u => u.active && !u.isGM).map(u => u.id);
+      let content;
+      if (restockChatMode === "summary") {
+        const counts = {};
+        for (const item of docs) {
+          const rarity = normalizeRarity(item.system?.rarity === "veryRare" ? "very rare" : item.system?.rarity);
+          counts[rarity] = (counts[rarity] || 0) + 1;
+        }
+        const breakdown = Object.entries(counts).map(([rarity, count]) => `${count} ${rarity}`).join(", ");
+        content = `${merchantMessage}<br>New stock: ${docs.length} items (${breakdown})`;
+      } else {
+        content = `${merchantMessage}<br><strong>New Items:</strong> ${docs.map(i => i.name).join(", ")}`;
+      }
+      ChatMessage.create({
+        speaker: { alias: merchantName },
+        content,
+        whisper: playerRecipients
+      });
+    }
+    ui.notifications.info(`Stocked ${docs.length} items from "${sourceName}" to ${merchantName}`);
+    return true;
+  }
+
+  game.sanctumMerchant.selectStockItems = selectStockItems;
+  game.sanctumMerchant.commitStockItems = commitStockItems;
+
+  game.sanctumMerchant.populateMerchantWithJSON = async function(options = {}) {
+    const config = {
+      source: options.source,
+      sourceType: options.sourceType || "compendium",
+      sourceId: options.source,
+      formula: options.rollFormula || options.formula || DEFAULT_FORMULA,
+      types: options.allowedTypes || options.types || DEFAULT_STOCK_TYPES,
+      tags: options.rareTags || options.tags || DEFAULT_STOCK_TAGS,
+      strictRarity: options.strictRarity,
+      merchantMessage: options.merchantMessage || DEFAULT_MERCHANT_MESSAGE,
+      restockChatMode: options.restockChatMode
+        ?? (options.sendRestockMessage === false ? "off" : getWorldChatMode()),
+      restockMode: options.restockMode || "add"
+    };
+    const rolled = await selectStockItems(config);
+    if (!rolled?.docs?.length) return;
+    const target = resolveStockTarget();
+    if (!target) {
+      ui.notifications.warn("No merchants were stocked. Make sure you have a merchant selected or controlled.");
+      return;
+    }
+    await commitStockItems(target.actor, rolled.docs, {
+      sourceName: rolled.sourceName,
+      merchantName: target.name,
+      restockMode: config.restockMode,
+      restockChatMode: config.restockChatMode,
+      merchantMessage: config.merchantMessage
+    });
   };
 
   game.sanctumMerchant.auditTags = async function() {
@@ -1325,6 +1774,7 @@ Hooks.once("ready", () => {
     }
 
     getDialogV2().wait({
+      classes: ["sanctum-merchant-dialog"],
       window: { title: "Sanctum Merchant Tag Audit", resizable: true },
       position: { width: 700, height: 600 },
       content: trustedContent(output),
