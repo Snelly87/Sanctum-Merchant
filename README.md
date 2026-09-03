@@ -106,7 +106,7 @@ Clone or copy the `sanctum-merchant` folder into Foundry’s `Data/modules` dire
 ### Requirements
 
 - **Foundry VTT**: 13 or higher (verified on 14.367)
-- **Optional**: [Item Piles](https://foundryvtt.com/packages/item-piles) — needed for merchant windows and the header Stock button
+- **Module**: [Item Piles](https://foundryvtt.com/packages/item-piles) — needed for merchant windows and the header Stock button
 - **Game systems**: system-agnostic; works with any system Item Piles supports (including D&D 5e)
 
 ## Usage
