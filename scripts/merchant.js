@@ -46,6 +46,8 @@ if (document.head) ensureMerchantStyles();
 
 const STOCK_FLAG = "stock";
 const stockPreview = new WeakMap();
+let selectedDirectoryActorId = null;
+let targetRefreshQueued = false;
 
 function normalizeRarity(str) {
   if (!str || !String(str).trim()) return "common";
@@ -54,16 +56,35 @@ function normalizeRarity(str) {
   return value.replace(/[\s_-]+/g, " ");
 }
 
+function actorsMatch(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.uuid && b.uuid) return a.uuid === b.uuid;
+  return !!(a.id && b.id && a.id === b.id);
+}
+
 function resolveStockTarget() {
   const ip = SanctumMerchantItemPilesIntegration;
+  const pinned = ip.currentMerchantActor;
+  const merchantTargets = [];
   for (const app of ip.getOpenApps()) {
     if (!ip.isMerchantWindow(app)) continue;
     const actor = app.merchant || app.actor;
-    if (actor) return { actor, name: actor.name, source: "window" };
+    if (!actor) continue;
+    merchantTargets.push({ actor, name: actor.name, source: "window" });
   }
+  if (pinned) {
+    const pinnedTarget = merchantTargets.find(entry => actorsMatch(entry.actor, pinned));
+    if (pinnedTarget) return pinnedTarget;
+  }
+  if (merchantTargets.length) return merchantTargets[0];
   for (const token of canvas?.tokens?.controlled ?? []) {
     if (!token.actor) continue;
     return { actor: token.actor, name: token.name || token.actor.name, token, source: "token" };
+  }
+  const directoryActor = selectedDirectoryActorId ? game.actors.get(selectedDirectoryActorId) : null;
+  if (directoryActor) {
+    return { actor: directoryActor, name: directoryActor.name, source: "directory" };
   }
   return null;
 }
@@ -112,12 +133,93 @@ async function saveMerchantStockConfig(actor, config) {
   await doc.setFlag(MODULE_ID, STOCK_FLAG, config);
 }
 
+async function clearMerchantStockConfig(actor) {
+  const doc = getStockFlagDocument(actor);
+  if (!doc?.unsetFlag) return;
+  await doc.unsetFlag(MODULE_ID, STOCK_FLAG);
+}
+
 function findOpenConfigDialog() {
   const apps = foundry.applications?.instances?.values?.() ?? [];
   for (const app of apps) {
     if (app.element?.querySelector?.("[data-sanctum-config]")) return app;
   }
   return null;
+}
+
+function stockTargetKey(target) {
+  if (!target?.actor) return "";
+  return [
+    target.source || "",
+    target.actor.uuid || target.actor.id || "",
+    target.token?.id || target.actor.token?.id || ""
+  ].join(":");
+}
+
+function setConfigDialogTarget(dialog, target) {
+  const root = dialog?.element;
+  if (!root) return;
+  const label = root.querySelector("[data-sanctum-target]");
+  if (label) {
+    label.textContent = target
+      ? `Target: ${target.name}`
+      : "No merchant selected — open an Item Piles merchant or control a token.";
+  }
+  const title = target ? `Sanctum Merchant — ${target.name}` : "Sanctum Merchant";
+  if (dialog.options?.window) dialog.options.window.title = title;
+  const titleEl = root.querySelector(".window-title");
+  if (titleEl) titleEl.textContent = title;
+}
+
+function refreshOpenConfigDialogTarget() {
+  const dialog = findOpenConfigDialog();
+  if (!dialog?.element) return;
+  const target = resolveStockTarget();
+  const key = stockTargetKey(target);
+  const previous = dialog.element.dataset.sanctumTargetKey ?? "";
+  if (key === previous) {
+    setConfigDialogTarget(dialog, target);
+    return;
+  }
+  dialog.element.dataset.sanctumTargetKey = key;
+  clearStockPreview(dialog);
+  bindConfigDialog(dialog);
+}
+
+function queueConfigTargetRefresh() {
+  if (targetRefreshQueued) return;
+  targetRefreshQueued = true;
+  requestAnimationFrame(() => {
+    targetRefreshQueued = false;
+    refreshOpenConfigDialogTarget();
+  });
+}
+
+function bindActorDirectoryTarget(root) {
+  const host = asElement(root) ?? asElement(ui.actors);
+  if (!host || host.dataset.sanctumTargetClicks) return;
+  host.dataset.sanctumTargetClicks = "true";
+  host.addEventListener("click", event => {
+    const row = event.target.closest("[data-entry-id], [data-document-id]");
+    if (!row || !host.contains(row)) return;
+    const id = row.dataset.entryId || row.dataset.documentId;
+    if (!id || !game.actors.get(id)) return;
+    selectedDirectoryActorId = id;
+    queueConfigTargetRefresh();
+  });
+}
+
+function registerConfigTargetWatchers() {
+  if (registerConfigTargetWatchers.done) return;
+  registerConfigTargetWatchers.done = true;
+  Hooks.on("controlToken", queueConfigTargetRefresh);
+  const onMerchantApp = app => {
+    if (SanctumMerchantItemPilesIntegration.isMerchantWindow(app)) queueConfigTargetRefresh();
+  };
+  Hooks.on("renderApplication", onMerchantApp);
+  Hooks.on("closeApplication", onMerchantApp);
+  Hooks.on("renderApplicationV2", onMerchantApp);
+  Hooks.on("closeApplicationV2", onMerchantApp);
 }
 
 function createTagElement(tag, { removable = true } = {}) {
@@ -270,6 +372,7 @@ class SanctumMerchantItemPilesIntegration {
       if (app.actor === this.currentMerchantActor || app.merchant === this.currentMerchantActor) {
         this.currentMerchantActor = null;
       }
+      if (this.isMerchantWindow(app)) queueConfigTargetRefresh();
     });
 
     this.isIntegrationReady = true;
@@ -282,6 +385,7 @@ class SanctumMerchantItemPilesIntegration {
     if (buttons.some(button => button.class === "sanctum-merchant-stock")) return;
 
     this.currentMerchantActor = app.merchant || app.actor;
+    queueConfigTargetRefresh();
 
     let hideText = false;
     try {
@@ -797,7 +901,13 @@ async function resetMerchantSettings() {
     await game.settings.set(MODULE_ID, "restockMode", "add");
     await game.settings.set(MODULE_ID, "merchantMessage", DEFAULT_MERCHANT_MESSAGE);
     await game.settings.set(MODULE_ID, "tags", "");
-    ui.notifications.info("Sanctum Merchant settings reset to default.");
+    const target = resolveStockTarget();
+    if (target?.actor) {
+      await clearMerchantStockConfig(target.actor);
+      ui.notifications.info(`Sanctum Merchant settings reset to default for ${target.name}.`);
+    } else {
+      ui.notifications.info("Sanctum Merchant world settings reset to default.");
+    }
   } catch (err) {
     SM.error("Reset failed:", err);
     ui.notifications.error("Could not reset merchant settings.");
@@ -826,12 +936,8 @@ function bindConfigDialog(dialog) {
   root.querySelector(".rarity-tags")?.replaceChildren();
   const target = resolveStockTarget();
   const config = { ...getWorldStockConfig(), ...(target ? loadMerchantStockConfig(target.actor) : {}) };
-  const targetLabel = root.querySelector("[data-sanctum-target]");
-  if (targetLabel) {
-    targetLabel.textContent = target
-      ? `Target: ${target.name}`
-      : "No merchant selected — open an Item Piles merchant or control a token.";
-  }
+  root.dataset.sanctumTargetKey = stockTargetKey(target);
+  setConfigDialogTarget(dialog, target);
 
   const savedSource = config.source || game.settings.get(MODULE_ID, "itemSource")
     || `compendium:${game.settings.get(MODULE_ID, "compendium")}`;
@@ -1305,7 +1411,12 @@ Hooks.once("ready", async () => {
   }
 
   injectMerchantButton();
-  Hooks.on("renderActorDirectory", (app, element) => injectMerchantButton(element ?? app.element));
+  bindActorDirectoryTarget();
+  registerConfigTargetWatchers();
+  Hooks.on("renderActorDirectory", (app, element) => {
+    injectMerchantButton(element ?? app.element);
+    bindActorDirectoryTarget(element ?? app.element);
+  });
   Hooks.on("renderSidebar", () => injectMerchantButton());
 
   game.sanctumMerchant.debugActorsTab = () => {
@@ -1324,6 +1435,7 @@ Hooks.once("ready", async () => {
     const existing = findOpenConfigDialog();
     if (existing) {
       existing.bringToFront?.();
+      refreshOpenConfigDialogTarget();
       return existing;
     }
     const target = resolveStockTarget();

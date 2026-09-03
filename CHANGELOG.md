@@ -19,6 +19,9 @@ All notable changes to Sanctum Merchant are documented in this file.
 ### Fixed
 
 - Stock Merchant, import manager, and tag audit windows scroll inside a fixed height so footer buttons stay visible without resizing.
+- The Stock Merchant target line updates when you select a token, click an actor, or open an Item Piles merchant while the window is already open.
+- Opening Stock Merchant from an Item Piles header uses that merchant when several shop windows are open, instead of the first one found.
+- **Reset to Default** clears the active merchant’s saved filters as well as world defaults.
 - `populateMerchantWithJSON` keeps the previous default types, rarities, formula, and merchant message when those options are omitted.
 - Confirm Stock saves the filters that produced the preview; changing source, types, rarities, or formula clears the preview so a new roll is required.
 - Replace restock restores the previous inventory if the new items fail to add.
