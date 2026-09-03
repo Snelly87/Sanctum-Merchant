@@ -1,6 +1,10 @@
 console.log("Sanctum Merchant | Script loaded");
 
 const MODULE_ID = "sanctum-merchant";
+const DEFAULT_STOCK_TYPES = ["weapon", "equipment", "consumable", "loot", "container", "tool"];
+const DEFAULT_STOCK_TAGS = ["rare", "very rare", "legendary"];
+const DEFAULT_MERCHANT_MESSAGE = "🧿 Got somethin' that might interest ya'!";
+const DEFAULT_FORMULA = "1d6+2";
 
 const SM = {
   debug: false,
@@ -408,6 +412,32 @@ class SanctumMerchantItemPilesIntegration {
       return false;
     }
   }
+
+  static snapshotItems(merchant) {
+    if (!merchant?.items) return [];
+    return merchant.items.map(item => item.toObject());
+  }
+
+  static async restoreItems(merchant, items) {
+    if (!merchant || !items?.length) return true;
+    try {
+      if (this.isItemPilesMerchant(merchant) && game.itempiles?.API?.addItems) {
+        await game.itempiles.API.addItems(merchant, items);
+        return true;
+      }
+      await merchant.createEmbeddedDocuments("Item", items);
+      return true;
+    } catch (error) {
+      SM.error("Failed to restore merchant inventory via Item Piles:", error);
+      try {
+        await merchant.createEmbeddedDocuments("Item", items);
+        return true;
+      } catch (fallbackError) {
+        SM.error("Failed to restore merchant inventory:", fallbackError);
+        return false;
+      }
+    }
+  }
 }
 
 Hooks.once("init", () => {
@@ -624,6 +654,33 @@ async function saveWorldStockConfig(config) {
   await game.settings.set(MODULE_ID, "restockMode", config.restockMode);
 }
 
+function stockRollFingerprint(config) {
+  return JSON.stringify({
+    source: config.source || "",
+    sourceId: config.sourceId || "",
+    formula: config.formula || "",
+    types: [...(config.types || [])].map(t => String(t).toLowerCase()).sort(),
+    tags: [...(config.tags || [])].map(t => normalizeRarity(t)).sort(),
+    strictRarity: config.strictRarity !== false
+  });
+}
+
+function clearStockPreview(dialog) {
+  stockPreview.delete(dialog);
+  const root = dialog?.element;
+  if (!root) return;
+  renderStockPreview(root, []);
+  const heading = root.querySelector(".sanctum-preview-heading");
+  if (heading) heading.textContent = "Rolled stock";
+}
+
+function invalidatePreviewIfRollInputsChanged(dialog) {
+  const preview = stockPreview.get(dialog);
+  if (!preview) return;
+  if (stockRollFingerprint(readFormStockConfig(dialog.element)) === stockRollFingerprint(preview.config)) return;
+  clearStockPreview(dialog);
+}
+
 function renderStockPreview(root, docs) {
   const wrap = root.querySelector(".sanctum-preview");
   const list = root.querySelector(".sanctum-preview-list");
@@ -669,6 +726,12 @@ async function confirmStockPreview(dialog) {
     return;
   }
   const root = dialog.element;
+  const current = readFormStockConfig(root);
+  if (stockRollFingerprint(current) !== stockRollFingerprint(preview.config)) {
+    clearStockPreview(dialog);
+    ui.notifications.warn("Filters changed since the last roll. Roll Stock again.");
+    return;
+  }
   const checked = new Set(
     Array.from(root.querySelectorAll(".sanctum-preview-item:checked")).map(el => Number(el.dataset.index))
   );
@@ -677,7 +740,12 @@ async function confirmStockPreview(dialog) {
     ui.notifications.warn("No items selected to stock.");
     return;
   }
-  const config = readFormStockConfig(root);
+  const config = {
+    ...preview.config,
+    restockMode: current.restockMode,
+    restockChatMode: current.restockChatMode,
+    merchantMessage: current.merchantMessage
+  };
   const target = resolveStockTarget() || preview.target;
   if (!target) {
     ui.notifications.error("No merchant selected. Open an Item Piles merchant or control a token.");
@@ -701,8 +769,7 @@ async function confirmStockPreview(dialog) {
     restockChatMode: config.restockChatMode,
     merchantMessage: config.merchantMessage
   });
-  stockPreview.delete(dialog);
-  renderStockPreview(root, []);
+  clearStockPreview(dialog);
 }
 
 async function clearInventoryCallback() {
@@ -722,13 +789,13 @@ async function clearInventoryCallback() {
 async function resetMerchantSettings() {
   try {
     await game.settings.set(MODULE_ID, "compendium", "world.ddb-oathbreaker-ddb-items");
-    await game.settings.set(MODULE_ID, "formula", "1d6+2");
-    await game.settings.set(MODULE_ID, "types", "weapon,consumable,equipment,loot,container,tool");
+    await game.settings.set(MODULE_ID, "formula", DEFAULT_FORMULA);
+    await game.settings.set(MODULE_ID, "types", DEFAULT_STOCK_TYPES.join(","));
     await game.settings.set(MODULE_ID, "strictRarity", true);
     await game.settings.set(MODULE_ID, "sendRestockMessage", true);
     await game.settings.set(MODULE_ID, "restockChatMode", "full");
     await game.settings.set(MODULE_ID, "restockMode", "add");
-    await game.settings.set(MODULE_ID, "merchantMessage", `🧿 Got somethin' that might interest ya'!`);
+    await game.settings.set(MODULE_ID, "merchantMessage", DEFAULT_MERCHANT_MESSAGE);
     await game.settings.set(MODULE_ID, "tags", "");
     ui.notifications.info("Sanctum Merchant settings reset to default.");
   } catch (err) {
@@ -912,6 +979,17 @@ function bindConfigDialog(dialog) {
       if (tag && list && !list.querySelector(`[data-tag="${tag}"]`)) {
         list.append(createTagElement(tag));
       }
+    });
+
+    const onRollInputsChanged = () => queueMicrotask(() => invalidatePreviewIfRollInputsChanged(dialog));
+    root.addEventListener("change", event => {
+      if (["source", "formula", "strictRarity", "rarity-preset"].includes(event.target?.name)) onRollInputsChanged();
+    });
+    root.addEventListener("input", event => {
+      if (event.target?.name === "formula") onRollInputsChanged();
+    });
+    root.addEventListener("click", event => {
+      if (event.target.closest(".add-type, .select-all-types, .add-rarity, .remove-tag")) onRollInputsChanged();
     });
   }
 
@@ -1284,6 +1362,7 @@ Hooks.once("ready", async () => {
           label: "Reset to Default",
           callback: async (_event, _button, app) => {
             await resetMerchantSettings();
+            clearStockPreview(app);
             bindConfigDialog(app);
           }
         },
@@ -1310,7 +1389,7 @@ Hooks.once("ready", async () => {
     const allowedTypes = config.types || config.allowedTypes || [];
     const rareTags = config.tags || config.rareTags || [];
     const strictRarity = config.strictRarity !== false;
-    const rollFormula = config.formula || config.rollFormula || "1d6+2";
+    const rollFormula = config.formula || config.rollFormula || DEFAULT_FORMULA;
 
     let items = [];
     let sourceName = "";
@@ -1377,18 +1456,31 @@ Hooks.once("ready", async () => {
     merchantName = actor?.name || "The Merchant",
     restockMode = "add",
     restockChatMode = "full",
-    merchantMessage = "🧿 Got somethin' that might interest ya'!"
+    merchantMessage = DEFAULT_MERCHANT_MESSAGE
   } = {}) {
     if (!actor) {
       ui.notifications.warn("No merchants were stocked. Make sure you have a merchant selected or controlled.");
       return false;
     }
+    let replacedSnapshot = null;
     if (restockMode === "replace") {
-      await SanctumMerchantItemPilesIntegration.clearMerchantInventory(actor, { silent: true });
+      replacedSnapshot = SanctumMerchantItemPilesIntegration.snapshotItems(actor);
+      const cleared = await SanctumMerchantItemPilesIntegration.clearMerchantInventory(actor, { silent: true });
+      if (!cleared) {
+        ui.notifications.error(`Could not clear ${merchantName} for replace restock.`);
+        return false;
+      }
     }
     const success = await SanctumMerchantItemPilesIntegration.addItemsToMerchant(actor, docs);
     if (!success) {
-      ui.notifications.warn(`Could not add items to ${merchantName}.`);
+      if (replacedSnapshot?.length) {
+        const restored = await SanctumMerchantItemPilesIntegration.restoreItems(actor, replacedSnapshot);
+        ui.notifications.warn(restored
+          ? `Could not add items to ${merchantName}. Previous stock was restored.`
+          : `Could not add items to ${merchantName}, and previous stock could not be restored.`);
+      } else {
+        ui.notifications.warn(`Could not add items to ${merchantName}.`);
+      }
       return false;
     }
     if (restockChatMode === "full" || restockChatMode === "summary") {
@@ -1423,11 +1515,11 @@ Hooks.once("ready", async () => {
       source: options.source,
       sourceType: options.sourceType || "compendium",
       sourceId: options.source,
-      formula: options.rollFormula || options.formula,
-      types: options.allowedTypes || options.types,
-      tags: options.rareTags || options.tags,
+      formula: options.rollFormula || options.formula || DEFAULT_FORMULA,
+      types: options.allowedTypes || options.types || DEFAULT_STOCK_TYPES,
+      tags: options.rareTags || options.tags || DEFAULT_STOCK_TAGS,
       strictRarity: options.strictRarity,
-      merchantMessage: options.merchantMessage,
+      merchantMessage: options.merchantMessage || DEFAULT_MERCHANT_MESSAGE,
       restockChatMode: options.restockChatMode
         ?? (options.sendRestockMessage === false ? "off" : getWorldChatMode()),
       restockMode: options.restockMode || "add"

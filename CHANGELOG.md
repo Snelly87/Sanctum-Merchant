@@ -19,6 +19,9 @@ All notable changes to Sanctum Merchant are documented in this file.
 ### Fixed
 
 - Stock Merchant, import manager, and tag audit windows scroll inside a fixed height so footer buttons stay visible without resizing.
+- `populateMerchantWithJSON` keeps the previous default types, rarities, formula, and merchant message when those options are omitted.
+- Confirm Stock saves the filters that produced the preview; changing source, types, rarities, or formula clears the preview so a new roll is required.
+- Replace restock restores the previous inventory if the new items fail to add.
 
 ## [1.1.1] - 2026-09-02
 
