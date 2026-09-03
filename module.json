@@ -12,6 +12,7 @@
   ],
   "type": "module",
   "esmodules": ["scripts/merchant.js"],
+  "styles": ["styles/sanctum-merchant.css"],
   "compatibility": {
     "minimum": "13",
     "verified": "14"

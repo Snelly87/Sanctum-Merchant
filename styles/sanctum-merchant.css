@@ -1,0 +1,27 @@
+/* Foundry V14 DialogV2 clips .window-content (overflow: hidden). Keep the
+   footer pinned and let the form body scroll instead of forcing a resize. */
+.application.dialog.sanctum-merchant-dialog {
+  min-height: 320px;
+}
+
+.application.dialog.sanctum-merchant-dialog .window-content {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.application.dialog.sanctum-merchant-dialog .dialog-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+.application.dialog.sanctum-merchant-dialog .dialog-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.application.dialog.sanctum-merchant-dialog .form-footer {
+  flex: 0 0 auto;
+}

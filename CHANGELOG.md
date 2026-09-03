@@ -2,6 +2,24 @@
 
 All notable changes to Sanctum Merchant are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Per-merchant saved filters (source, types, rarities, formula, restock mode, chat mode) on the actor or unlinked token.
+- **Add** vs **Replace** restock mode.
+- **Roll Stock** preview: uncheck items, then **Confirm Stock**.
+- Restock chat modes: Off, Summary, or Full list.
+
+### Changed
+
+- Stock and clear always target one live merchant: open Item Piles window, else the controlled token’s actor (unlinked tokens included).
+- Opening Stock Merchant focuses an existing window instead of stacking another.
+
+### Fixed
+
+- Stock Merchant, import manager, and tag audit windows scroll inside a fixed height so footer buttons stay visible without resizing.
+
 ## [1.1.1] - 2026-09-02
 
 ### Added
