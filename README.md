@@ -21,8 +21,8 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 - **1.1.1** — optional silent restocks.
 - **1.1.0** — Foundry **V14** support (Application V2 dialogs, Actors-tab button, Item Piles header button).
 
-<img width="1072" height="795" alt="image" src="https://github.com/user-attachments/assets/bf8e3f14-d507-4f0d-ba27-2564ba34123d" />
-*Screenshot: Sanctum Merchant configuration dialog with an Item Piles merchant window*
+<img width="720" alt="Sanctum Merchant dialog targeting Buju The Merchant" src="docs/images/stock-merchant-dialog.png" />
+*Stock Merchant dialog (1.2.0): per-shop target, filters, add vs replace, restock chat, and Roll / Confirm Stock*
 
 ## Features
 
@@ -30,7 +30,7 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 
 - **Stock NPC and player characters**: the **Stock Merchant** button appears in the Actors directory header on the right-hand sidebar.
 
-  <img width="299" height="61" alt="image" src="https://github.com/user-attachments/assets/26b1fafa-386c-4870-8d8d-151bf3b9c31c" />
+  <img width="200" alt="Stock Merchant button on the Actors tab" src="docs/images/actors-tab-button.png" />
 
 ### Item Piles integration
 
@@ -38,8 +38,8 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 - **Automatic detection**: uses the Item Piles API to recognize merchant piles and controlled tokens.
 - **Native add/remove**: stocks and clears inventory through `game.itempiles.API.addItems` / `removeItems`.
 
-<img width="1888" height="795" alt="image" src="https://github.com/user-attachments/assets/ebbb5e60-bc99-45a9-83a8-5b86cc3a9cec" />
-*Screenshot: Stock Merchant button in the Item Piles merchant header*
+<img width="900" alt="Stock Merchant button in the Item Piles merchant header" src="docs/images/item-piles-header.png" />
+*Stock Merchant in the Item Piles merchant header, next to Open Sheet / Show To Players*
 
 ### Flexible item sourcing
 
@@ -48,8 +48,8 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 - **Dynamic types**: item types are read from the selected source.
 - **Last source remembered**: world settings store your last compendium and filters.
 
-<img width="1073" height="404" alt="image" src="https://github.com/user-attachments/assets/215fde93-a9d9-4fe5-835c-226105b4546c" />
-*Screenshot: JSON import interface*
+<img width="720" alt="JSON import box in the Stock Merchant dialog" src="docs/images/json-import.png" />
+*JSON import: paste a collection, or manage imports already in memory*
 
 ### Filtering
 
@@ -59,11 +59,7 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 - **Roll formula**: dice notation such as `1d6+2` for how many items to stock.
 - **Restock chat**: Off (silent), Summary (count and rarities), or Full list of item names.
 
-<img width="1031" height="252" alt="image" src="https://github.com/user-attachments/assets/78348617-2d09-4673-9cb2-e0694186b468" />
-<img width="1055" height="185" alt="image" src="https://github.com/user-attachments/assets/73a6f5d5-5113-4369-9987-14801ca5d910" />
-<img width="1040" height="198" alt="image" src="https://github.com/user-attachments/assets/240dbd59-fccf-4554-950c-2e4ccc561ee0" />
-<img width="1041" height="267" alt="image" src="https://github.com/user-attachments/assets/14018d56-6397-4fb7-a955-7dc8ae092b24" />
-*Screenshot: filtering and rarity selection*
+Those controls live in the Stock Merchant dialog above: item type tags, rarity tags or a preset, strict filtering, restock mode, and restock chat.
 
 ### Rarity presets
 
@@ -79,10 +75,8 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 - Stock one item or an entire rarity group
 - Filter the audit list by name
 
-<img width="695" height="595" alt="image" src="https://github.com/user-attachments/assets/46a9255c-1cf0-4cdf-95af-ee7862cd4537" />
-<img width="701" height="453" alt="image" src="https://github.com/user-attachments/assets/3601b61f-b2fe-48aa-9710-1aaeb0fb9983" />
-<img width="699" height="598" alt="image" src="https://github.com/user-attachments/assets/04384f03-7b75-4688-aab5-bc556a008e3f" />
-*Screenshot: tag audit organized by rarity*
+<img width="720" alt="Rarity tag audit grouped by rarity with Stock All buttons" src="docs/images/tag-audit.png" />
+*Tag audit: items grouped by rarity, filter by name, stock one group or the whole list*
 
 ## Installation
 
@@ -117,6 +111,9 @@ Clone or copy the `sanctum-merchant` folder into Foundry’s `Data/modules` dire
 3. Choose a source, item types, rarity tags or a preset, restock mode (add or replace), chat mode, and a roll formula.
 4. Click **Roll Stock**. Uncheck any items you do not want, then **Confirm Stock**.
 5. Filters are saved on that merchant. Use **Clear Inventory** to empty it, or **Audit Tags** to stock specific items.
+
+<img width="720" alt="Rolled stock preview with item checkboxes" src="docs/images/stock-preview.png" />
+*Roll Stock preview: uncheck rows to skip them before Confirm Stock*
 
 ### Filtering
 
@@ -153,8 +150,8 @@ JSON collections live in memory only and are removed after 24 hours.
 
 ### Settings
 
-<img width="777" height="679" alt="image" src="https://github.com/user-attachments/assets/630c9eb4-9398-4682-8b1e-4e9b334ea589" />
-*Screenshot: module settings*
+<img width="720" alt="Sanctum Merchant module settings" src="docs/images/module-settings.png" />
+*Module settings: default source, formula, types, restock chat, and add vs replace*
 
 **Configure Settings → Module Settings → Sanctum Merchant**
 
