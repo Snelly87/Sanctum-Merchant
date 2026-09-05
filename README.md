@@ -11,7 +11,7 @@ Like my work? Buy me a coffee!
 ![Static Badge](https://img.shields.io/badge/Latest_Release-1.3.0-0?color=rgb(0%2C0%2C255))
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-A merchant stocking system with Item Piles integration for Foundry VTT. Automate shop inventories with rarity filtering, roll-based quantities, and items from compendiums or pasted JSON.
+A merchant stocking system with Item Piles integration for Foundry VTT. Roll shop inventories from Item packs or custom collections, preview the haul, then add or replace stock.
 
 **Current release: 1.3.0** — verified on Foundry Virtual Tabletop **Version 14 Stable (Build 367)**. See the [changelog](CHANGELOG.md).
 
@@ -23,7 +23,7 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 - **1.1.0** — Foundry **V14** support (Application V2 dialogs, Actors-tab button, Item Piles header button).
 
 <img width="720" alt="Sanctum Merchant dialog targeting Buju The Merchant" src="docs/images/stock-merchant-dialog.png" />
-*Stock Merchant dialog (1.2.0): per-shop target, filters, add vs replace, restock chat, and Roll / Confirm Stock*
+*Stock Merchant (1.3.0): shop target, custom collections, shop profiles, Item Source preview, and Roll / Confirm Stock*
 
 ## Features
 
@@ -45,17 +45,18 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 ### Flexible item sourcing
 
 - **Compendiums**: Item Source lists every Foundry **Item** pack (world, system, and modules), grouped by where it lives. Your Oathbreaker DDB gear is **DDB Items** under the World group.
+- **Source preview**: picking a pack shows item count, types, rarities, and example names before you roll.
 - **Custom collections**: import JSON or add items by hand. Collections are saved in the world and survive reload.
 - **JSON template**: insert, copy, or download a starter collection, preview the items, then save as a new collection or merge into an existing one.
-- **Add item**: name, type, rarity, optional price, and **Choose image** (Foundry file picker — browse the world or upload).
+- **Add item**: name, type, rarity, price with **CP / SP / EP / GP / PP**, and **Choose image** (Foundry file picker — browse the world or upload).
 - **Stock on merchant**: save that item to the collection and put it on the current shop without rolling.
 - **Stock selected / Stock all**: check items already in a collection and add them to the merchant with no roll.
-- **Edit / Delete**: change or remove items already in a collection.
+- **Edit / Delete**: change or remove items already in a collection. Double-click a row to open the item sheet.
 - **Dynamic types**: item types are read from the selected source.
 - **Last source remembered**: merchant flags first, then the last source used in Stock Merchant, then the first Item pack.
 
-<img width="720" alt="JSON import box in the Stock Merchant dialog" src="docs/images/json-import.png" />
-*Custom collections: import JSON, manage saved catalogs, or add a single item*
+<img width="720" alt="Custom collections: JSON template, add item with currency, and Harbor Market catalog" src="docs/images/json-import.png" />
+*Custom collections (1.3.0): JSON template, add/edit with gold-piece types, catalog with prices, Stock selected / Stock all*
 
 JSON collections use this shape. `name` is required on each item. `type` defaults to equipment, `rarity` to common. `price` is an amount; `priceDenomination` is `cp`, `sp`, `ep`, `gp`, or `pp` (gold if omitted).
 
@@ -84,9 +85,10 @@ Coin values: 100 cp = 1 gp, 10 sp = 1 gp, 2 ep = 1 gp, 1 pp = 10 gp.
 - **Rarity tags**: common through legendary, plus campaign tags (exotic, cursed, forged, sanctum-blessed).
 - **Strict vs loose**: exact rarity match, or all items with matching rarities weighted higher.
 - **Roll formula**: dice notation such as `1d6+2` for how many items to stock.
+- **Live match count**: how many items in the source match the current types and rarities, before you click Roll Stock.
 - **Restock chat**: Off (silent), Summary (count and rarities), or Full list of item names.
 
-Those controls live in the Stock Merchant dialog above: item type tags, rarity tags or a preset, strict filtering, restock mode, and restock chat. After you roll, **Add vs Replace** is also on the rolled stock panel so you can choose it at confirm time. The world setting is only the default. Rows show price. Double-click a rolled item or a custom collection item to open its full sheet.
+Those controls live in the Stock Merchant dialog: item type tags, rarity tags or a preset, strict filtering, restock mode, and restock chat. After you roll, **Add vs Replace** is also on the rolled stock panel so you can choose it at confirm time. The world setting is only the default. Rows show price. Double-click a rolled item or a custom collection item to open its full sheet.
 
 ### Shop profiles
 
@@ -144,12 +146,16 @@ Clone or copy the `sanctum-merchant` folder into Foundry’s `Data/modules` dire
 
 1. Select an Item Piles merchant token, or open its merchant window.
 2. Click **Stock Merchant** on the Actors tab or in the Item Piles window header.
-3. Choose a source, item types, rarity tags or a preset, restock mode (add or replace), chat mode, and a roll formula.
-4. Click **Roll Stock**. Uncheck any items you do not want, then **Confirm Stock**.
+3. Optionally apply a **Shop Profile**, then choose a source, item types, rarity tags or a preset, chat mode, and a roll formula.
+4. Click **Roll Stock**. Uncheck any items you do not want, set **Add** vs **Replace**, then **Confirm Stock**. Double-click a row for the full item sheet. **Discard Roll** clears the preview without closing the window.
 5. Filters are saved on that merchant. Use **Clear Inventory** to empty it, or **Audit Tags** to stock specific items.
+6. For a hand-built shop, expand **Custom collections**, add or import items, then **Stock selected** / **Stock all** — no roll required.
 
-<img width="720" alt="Rolled stock preview with item checkboxes" src="docs/images/stock-preview.png" />
-*Roll Stock preview: uncheck rows to skip them before Confirm Stock*
+<img width="720" alt="Rolled stock preview with restock mode and prices" src="docs/images/stock-preview-full.png" />
+*Roll Stock (1.3.0): source preview above, rolled list with prices and Add vs Replace, then Confirm Stock*
+
+<img width="720" alt="Rolled stock rows with prices and Discard roll" src="docs/images/stock-preview.png" />
+*Rolled list: uncheck rows to skip, choose restock mode, Discard Roll, or double-click to open the sheet*
 
 ### Filtering
 
@@ -157,45 +163,22 @@ Clone or copy the `sanctum-merchant` folder into Foundry’s `Data/modules` dire
 - **Rarity Tags / Presets**: which rarities to pull
 - **Strict Mode**: on = only those rarities; off = all items, with matching rarities favored
 - **Roll Formula**: how many items to add (for example `1d6+2`)
+- **Match count**: shown under Strict Filtering so you know if the roll would find nothing
 
 Items already on the merchant (same name) are not added again when using the direct fallback path.
-
-### JSON import format
-
-```json
-{
-  "name": "Custom Collection Name",
-  "items": [
-    {
-      "_id": "unique-item-id",
-      "name": "Magic Sword",
-      "type": "weapon",
-      "system": {
-        "rarity": "rare",
-        "description": {
-          "value": "<p>A gleaming magical blade...</p>"
-        }
-      },
-      "img": "icons/weapons/swords/sword-magic-glowing.webp"
-    }
-  ]
-}
-```
-
-JSON collections are stored in the world and stay until you delete them.
 
 ### Settings
 
 <img width="720" alt="Sanctum Merchant module settings" src="docs/images/module-settings.png" />
-*Module settings: default source, formula, types, restock chat, and add vs replace*
+*Module settings: default source, formula, types, restock chat, and default add vs replace*
 
 **Configure Settings → Module Settings → Sanctum Merchant**
 
-- **Default Compendium**
+- **Default Compendium** (leave blank to use the last source chosen in Stock Merchant)
 - **Default Roll Formula**
 - **Allowed Item Types**
 - **Strict Rarity Filtering**
-- **Default Restock Mode**: add to stock, or replace (clear then add)
+- **Default Restock Mode**: default for new merchants and Reset. Change Add vs Replace on the rolled list before Confirm.
 - **Restock Chat**: Off, Summary, or Full list of item names
 - **Merchant Message** (used for Summary and Full chat modes)
 
