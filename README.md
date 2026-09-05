@@ -8,15 +8,16 @@ Like my work? Buy me a coffee!
 
 [![Foundry Version](https://img.shields.io/badge/foundry-v13+-blue)](https://foundryvtt.com/)
 ![Static Badge](https://img.shields.io/badge/Foundry%20Verified%20Version-14-14?color=rgb(255%2C0%2C0))
-![Static Badge](https://img.shields.io/badge/Latest_Release-1.2.0-0?color=rgb(0%2C0%2C255))
+![Static Badge](https://img.shields.io/badge/Latest_Release-1.3.0-0?color=rgb(0%2C0%2C255))
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 A merchant stocking system with Item Piles integration for Foundry VTT. Automate shop inventories with rarity filtering, roll-based quantities, and items from compendiums or pasted JSON.
 
-**Current release: 1.2.0** — verified on Foundry Virtual Tabletop **Version 14 Stable (Build 367)**. See the [changelog](CHANGELOG.md).
+**Current release: 1.3.0** — verified on Foundry Virtual Tabletop **Version 14 Stable (Build 367)**. See the [changelog](CHANGELOG.md).
 
 ### What's new
 
+- **1.3.0** — persisted custom collections, shop profiles, JSON template and preview, Add vs Replace on the rolled list, prices, and double-click item sheets.
 - **1.2.0** — per-merchant saved shops, add vs replace restock, roll-then-confirm preview, and restock chat Off / Summary / Full.
 - **1.1.1** — optional silent restocks.
 - **1.1.0** — Foundry **V14** support (Application V2 dialogs, Actors-tab button, Item Piles header button).
@@ -43,13 +44,39 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 
 ### Flexible item sourcing
 
-- **Compendiums**: stock from any Foundry Item pack.
-- **JSON import**: paste a custom collection (kept in memory for 24 hours).
+- **Compendiums**: Item Source lists every Foundry **Item** pack (world, system, and modules), grouped by where it lives. Your Oathbreaker DDB gear is **DDB Items** under the World group.
+- **Custom collections**: import JSON or add items by hand. Collections are saved in the world and survive reload.
+- **JSON template**: insert, copy, or download a starter collection, preview the items, then save as a new collection or merge into an existing one.
+- **Add item**: name, type, rarity, optional price, and **Choose image** (Foundry file picker — browse the world or upload).
+- **Stock on merchant**: save that item to the collection and put it on the current shop without rolling.
+- **Stock selected / Stock all**: check items already in a collection and add them to the merchant with no roll.
+- **Edit / Delete**: change or remove items already in a collection.
 - **Dynamic types**: item types are read from the selected source.
-- **Last source remembered**: world settings store your last compendium and filters.
+- **Last source remembered**: merchant flags first, then the last source used in Stock Merchant, then the first Item pack.
 
 <img width="720" alt="JSON import box in the Stock Merchant dialog" src="docs/images/json-import.png" />
-*JSON import: paste a collection, or manage imports already in memory*
+*Custom collections: import JSON, manage saved catalogs, or add a single item*
+
+JSON collections use this shape. `name` is required on each item. `type` defaults to equipment, `rarity` to common. `price` is an amount; `priceDenomination` is `cp`, `sp`, `ep`, `gp`, or `pp` (gold if omitted).
+
+```json
+{
+  "name": "Harbor Market",
+  "items": [
+    {
+      "name": "Lantern Oil",
+      "type": "consumable",
+      "rarity": "common",
+      "price": 1,
+      "priceDenomination": "gp"
+    }
+  ]
+}
+```
+
+A bare array of items, a single item object, or a Foundry `{ "results": [...] }` dump also import. Preview first, then save as a new collection or merge into one you already have. Export downloads the same template shape (no `_id`).
+
+Coin values: 100 cp = 1 gp, 10 sp = 1 gp, 2 ep = 1 gp, 1 pp = 10 gp.
 
 ### Filtering
 
@@ -59,7 +86,16 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Automate
 - **Roll formula**: dice notation such as `1d6+2` for how many items to stock.
 - **Restock chat**: Off (silent), Summary (count and rarities), or Full list of item names.
 
-Those controls live in the Stock Merchant dialog above: item type tags, rarity tags or a preset, strict filtering, restock mode, and restock chat.
+Those controls live in the Stock Merchant dialog above: item type tags, rarity tags or a preset, strict filtering, restock mode, and restock chat. After you roll, **Add vs Replace** is also on the rolled stock panel so you can choose it at confirm time. The world setting is only the default. Rows show price. Double-click a rolled item or a custom collection item to open its full sheet.
+
+### Shop profiles
+
+- **General store**: equipment, loot, consumable · common / uncommon · `1d6+2`
+- **Alchemist**: consumable, loot · common / uncommon / rare · `1d4+2`
+- **Blacksmith**: weapon, equipment · common / uncommon / rare · `1d6` · replace
+- **Fence**: loot, equipment, weapon · rare / very rare / cursed / exotic · `1d4+1` · replace, chat off
+
+Applying a profile fills the form. Confirm Stock still saves those filters on that merchant.
 
 ### Rarity presets
 
@@ -92,7 +128,7 @@ https://github.com/Snelly87/Sanctum-Merchant/releases/latest/download/module.jso
 
 4. Click **Install**, then enable the module in your world.
 
-If you already had 1.0.0 installed and it disappeared after moving to Foundry 14, install 1.2.0 from that URL and enable **Sanctum Merchant** again in Manage Modules.
+If you already had 1.0.0 installed and it disappeared after moving to Foundry 14, install 1.3.0 from that URL and enable **Sanctum Merchant** again in Manage Modules.
 
 ### Manual install
 
@@ -146,7 +182,7 @@ Items already on the merchant (same name) are not added again when using the dir
 }
 ```
 
-JSON collections live in memory only and are removed after 24 hours.
+JSON collections are stored in the world and stay until you delete them.
 
 ### Settings
 
@@ -181,6 +217,10 @@ await game.sanctumMerchant.populateMerchantWithJSON({
 });
 
 const result = await game.sanctumMerchant.JSONImportManager.importJSON(jsonData);
+// or preview first:
+const parsed = game.sanctumMerchant.JSONImportManager.parseJSON(jsonData);
+await game.sanctumMerchant.JSONImportManager.saveParsed(parsed, { name: "Harbor Market" });
+// merge: saveParsed(parsed, { collectionId })
 
 await game.sanctumMerchant.auditTags();
 ```
@@ -226,12 +266,13 @@ System-agnostic. Tested with D&D 5e.
 
 ### Known issues
 
-- JSON collections are temporary (24 hours).
+- Very large custom collections live in world settings; keep catalogs to what you actually sell.
 - Very large packs (1000+ items) can take a moment to filter.
 - Unlinked merchant tokens stock the **token actor** (what Item Piles sells). The world actor sheet can look empty even when the merchant window is full.
 
 ## Changelog
 
+- **[1.3.0](CHANGELOG.md)** — persisted collections, shop profiles, JSON template/preview, prices, item sheets
 - **[1.2.0](CHANGELOG.md)** — per-merchant shops, preview, add/replace, chat modes
 - **[1.1.1](CHANGELOG.md)** — silent restock option
 - **[1.1.0](CHANGELOG.md)** — Foundry V14 compatibility
