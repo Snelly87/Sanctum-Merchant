@@ -2,6 +2,39 @@
 
 All notable changes to Sanctum Merchant are documented in this file.
 
+## [Unreleased]
+
+## [1.3.0] - 2026-09-04
+
+### Added
+
+- Custom collections persist in the world (import JSON or add items by hand). Manage, rename, and export them.
+- **Add item** form: name, type, rarity, optional price, and an image picker (browse or upload).
+- **Stock on merchant** puts a custom item on the current shop without rolling.
+- Pick existing collection items and **Stock selected** or **Stock all** onto the current merchant.
+- Edit or delete items already in a custom collection.
+- **Discard Roll** clears the rolled preview without closing Stock Merchant.
+- Item Source shows a preview of item count, types, rarities, and example names.
+- Custom collections sections collapse and expand with a clear chevron and “Click to expand/collapse”.
+- Live match count under filters shows how many items would roll before you click Roll Stock.
+- **Shop profiles**: General store, Alchemist, Blacksmith, and Fence fill types, rarities, formula, restock mode, and chat in one click.
+- **Add vs Replace** on the rolled stock panel, next to Discard Roll. The world setting is only the default.
+- JSON collection **template**: insert, copy, or download a starter file.
+- JSON import **preview** before save: counts, types, rarities, skipped rows, then new collection or merge.
+- Double-click a rolled item or a custom collection item to open its full item sheet.
+- Price shows on rolled stock rows and custom collection rows.
+- Custom item **currency** dropdown: CP, SP, EP, GP, PP. JSON import/export keeps `priceDenomination`.
+
+### Changed
+
+- Default item source is empty. Stock Merchant uses the merchant’s saved source, else last used, else the first Item pack — not the Oathbreaker DDB pack.
+- JSON import accepts `{ "name", "items" }`, a bare item array, a single item, or Foundry `results` dumps. Export matches the template (no `_id`).
+
+### Fixed
+
+- Deleting or renaming a custom collection no longer closes Stock Merchant.
+- Item Source preview shows again after selecting a pack (it was writing into the hidden JSON import box).
+
 ## [1.2.0] - 2026-09-03
 
 ### Added
