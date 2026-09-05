@@ -44,7 +44,7 @@ A merchant stocking system with Item Piles integration for Foundry VTT. Roll sho
 
 ### Flexible item sourcing
 
-- **Compendiums**: Item Source lists every Foundry **Item** pack (world, system, and modules), grouped by where it lives. Your Oathbreaker DDB gear is **DDB Items** under the World group.
+- **Compendiums**: Item Source lists every Foundry **Item** pack (world, system, and modules), grouped by where it lives.
 - **Source preview**: picking a pack shows item count, types, rarities, and example names before you roll.
 - **Custom collections**: import JSON or add items by hand. Collections are saved in the world and survive reload.
 - **JSON template**: insert, copy, or download a starter collection, preview the items, then save as a new collection or merge into an existing one.
